@@ -1,0 +1,96 @@
+/nologo
+/c
+/TC
+/std:c11
+/O2
+/MT
+/utf-8
+/W3
+/GS
+/sdl
+/D WINDOWS
+/D UNICODE
+/D _UNICODE
+/D WIN32_LEAN_AND_MEAN
+/D NOMINMAX
+/D _WIN32_WINNT=0x0A00
+/D _CRT_SECURE_NO_WARNINGS
+/D _CRT_NONSTDC_NO_DEPRECATE
+/I"Source/TPMFactoryUpd"
+/I"Source/Common"
+/I"Source/Common/ConsoleIO"
+/I"Source/Common/Crypt"
+/I"Source/Common/FileIO"
+/I"Source/Common/MicroTss"
+/I"Source/Common/MicroTss/Tpm_1_2"
+/I"Source/Common/MicroTss/Tpm_2_0"
+/I"Source/Common/Platform"
+/I"Source/Common/TpmDeviceAccess"
+/Fobuild\
+"Source/Common/CommandLine.c"
+"Source/Common/Config.c"
+"Source/Common/ConsoleIO/Common.c"
+"Source/Common/ConsoleIO/Windows/ConsoleIO.c"
+"Source/Common/ControllerCommon.c"
+"Source/Common/Crypt/Windows/Crypt.c"
+"Source/Common/DeviceManagement.c"
+"Source/Common/Error.c"
+"Source/Common/FileIO/Windows/FileIO.c"
+"Source/Common/FirmwareImage.c"
+"Source/Common/FirmwareUpdate.c"
+"Source/Common/Logging.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_FieldUpgradeComplete.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_FieldUpgradeInfoRequest.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_FieldUpgradeInfoRequest2.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_FieldUpgradeStart.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_FieldUpgradeUpdate.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_FlushSpecific.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_GetCapability.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_GetTestResult.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_Marshal.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_OIAP.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_OSAP.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_OwnerClear.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_OwnerReadInternalPub.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_ReadPubEK.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_SetCapability.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_Startup.c"
+"Source/Common/MicroTss/Tpm_1_2/TPM_TakeOwnership.c"
+"Source/Common/MicroTss/Tpm_1_2/TSC_PhysicalPresence.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FieldUpgradeAbandonVendor.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FieldUpgradeDataVendor.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FieldUpgradeFinalizeVendor.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FieldUpgradeManifestVendor.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FieldUpgradeMarshal.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FieldUpgradeStartVendor.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_FlushContext.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_GetCapability.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_GetTestResult.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_HierarchyChangeAuth.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_Marshal.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_PolicyCommandCode.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_PolicyOR.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_PolicySecret.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_SetPrimaryPolicy.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_Shutdown.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_StartAuthSession.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_Startup.c"
+"Source/Common/MicroTss/Tpm_2_0/TPM2_VendorMarshal.c"
+"Source/Common/Platform/Windows/Platform.c"
+"Source/Common/PropertyStorage.c"
+"Source/Common/TpmDeviceAccess/TPM_TIS.c"
+"Source/Common/TpmDeviceAccess/Windows/DeviceAccess.c"
+"Source/Common/TpmDeviceAccess/Windows/TpmIO.c"
+"Source/Common/TpmResponse.c"
+"Source/Common/UiUtility.c"
+"Source/Common/Utility.c"
+"Source/TPMFactoryUpd/CommandFlow_Init.c"
+"Source/TPMFactoryUpd/CommandFlow_SetMode.c"
+"Source/TPMFactoryUpd/CommandFlow_Tpm12ClearOwnership.c"
+"Source/TPMFactoryUpd/CommandFlow_TpmInfo.c"
+"Source/TPMFactoryUpd/CommandFlow_TpmUpdate.c"
+"Source/TPMFactoryUpd/CommandLineParser.c"
+"Source/TPMFactoryUpd/ConfigSettings.c"
+"Source/TPMFactoryUpd/Controller.c"
+"Source/TPMFactoryUpd/Response.c"
+"Source/TPMFactoryUpd/Windows/TPMFactoryUpd.c"
