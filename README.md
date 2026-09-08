@@ -1,10 +1,10 @@
 # Infineon TPM 2.0 Firmware Updater
 
-This Windows 11 application updates the firmware on supported **discrete Infineon TPM 2.0 modules**.
+This Windows 11 application updates the firmware on supported **discrete Infineon TPM 2.0 modules**. A discrete TPM is a small physical module installed on the motherboard.
 
 The updater detects the TPM, reads its current firmware version, and shows a checklist containing only the steps required for that computer. It remembers completed steps between restarts and stops safely if the TPM or firmware is not supported.
 
-The newest firmware included in version 0.8 of this updater is **5.67.19690.2**. Some older TPMs require two firmware updates, with a restart between them.
+The newest firmware included in version 0.831 of this updater is **5.67.19690.2**. Some older TPMs require two firmware updates, with a restart between them.
 
 > This tool is not for Intel PTT, AMD fTPM, TPM 1.2 devices, or TPMs made by another manufacturer. If your TPM is not supported, the updater will say so and will not start a firmware update.
 
@@ -35,7 +35,7 @@ If BitLocker is already off, no change is required. If the updater later reports
 ## Download and start the updater
 
 1. Open the [Releases](https://github.com/StalinVoter/TPM2.0-Firmware-Updater/releases) page.
-2. Download the ready-to-use **V0.8 portable ZIP** from the release assets. Do not download the automatically generated “Source code” archives unless you intend to build the program yourself.
+2. Download the ready-to-use **V0.831 portable ZIP** from the release assets. Do not download the automatically generated “Source code” archives unless you intend to build the program yourself.
 3. Right-click the downloaded ZIP and select **Extract All**.
 4. Open the extracted folder. Keep every included file together in that folder.
 5. Double-click **TPM-Updater.exe**.

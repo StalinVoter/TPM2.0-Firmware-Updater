@@ -26,7 +26,7 @@ function Invoke-SelfElevation {
 function Ensure-UpdaterBuilt {
     param([switch]$Force)
     if ($script:IsPortableRuntime) {
-        if ($Force) { throw 'This portable runtime cannot rebuild itself. Use the complete V0.8 source package.' }
+        if ($Force) { throw 'This portable runtime cannot rebuild itself. Use the complete V0.831 source package.' }
         Assert-PortableRuntimeIntegrity
         if (Test-UpdaterExecutable) { return }
         throw 'The portable updater failed its integrity or startup check.'
@@ -40,7 +40,7 @@ function Initialize-RunDetailsLog {
     Ensure-Directories
     $script:RunDetailsPath = Join-Path $script:LogDir ("run-{0}.txt" -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
     @(
-        'IFX TPM Firmware Updater V0.8 - detailed run log'
+        'IFX TPM Firmware Updater V0.831 - detailed run log'
         "Started UTC: $((Get-Date).ToUniversalTime().ToString('o'))"
         "Package: $script:PackageVersion"
         "Build ID: $script:BuildId"

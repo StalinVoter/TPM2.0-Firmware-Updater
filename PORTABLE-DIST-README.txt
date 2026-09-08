@@ -1,70 +1,95 @@
-IFX TPM Firmware Updater V0.8 PORTABLE
-======================================
+IFX TPM Firmware Updater V0.831 PORTABLE
+=======================================
 
-This file is copied into dist as README.txt.
+WHAT THIS APPLICATION DOES
+--------------------------
 
-Run
----
+This application updates supported discrete Infineon TPM 2.0 modules to the
+newest firmware included in this package: 5.67.19690.2.
 
-Start TPM-Updater.exe. It is the elevated V0.8 console application. Typing
-TPM-Updater in Command Prompt selects the EXE before the compatibility CMD file.
+It is not for Intel PTT, AMD fTPM, TPM 1.2 devices, or TPMs made by another
+manufacturer. The updater checks the TPM and stops without flashing if the
+device or its current firmware is not supported.
 
-The application silently detects the supported discrete Infineon TPM 2.0,
-installed firmware, Windows/BIOS TPM exposure, exact available update route,
-portable integrity, and saved workflow. The screen contains only the useful
-firmware summary, checklist, current arrow, confirmations, exact native-derived
-progress bar, and a concise result.
+BEFORE YOU BEGIN
+----------------
 
-Press Enter to perform the arrowed step, Y to confirm, or Esc to exit.
+1. Save your work and close other programs.
+2. Make sure you know your Windows account password.
+3. Save your BitLocker recovery key if BitLocker or Device Encryption is used.
+4. Suspend BitLocker protection on the Windows drive:
+   - Open Start and search for Manage BitLocker.
+   - Open it, select Suspend protection for drive C:, and confirm.
 
-For a BIOS step the application first says that the computer will reboot and
-enter UEFI settings. It then uses Windows /r /fw so the next restart enters the
-firmware interface. It does not force applications closed.
+Do not clear, reset, erase, or physically remove the TPM. When the application
+asks you to disable Trusted Computing, change only the BIOS/UEFI setting that
+enables or disables the TPM.
 
-Workflow continuity
+HOW TO START
+------------
+
+Keep every file in this folder together. Double-click TPM-Updater.exe and
+select Yes when Windows asks for administrator permission.
+
+The application displays the installed firmware and a checklist:
+
+  Enter = perform the step marked by the arrow
+  Y     = confirm the selected step
+  Esc   = exit without performing the step
+
+Run TPM-Updater.exe again after every restart. It remembers completed steps
+and checks them against the TPM before continuing.
+
+STEP-BY-STEP UPDATE
 -------------------
 
-State is stored at:
+1. DISABLE TRUSTED COMPUTING
 
-  C:\ProgramData\IFX-TPM-Updater-V0.8\Workflow.json
+   When the arrow points to the BIOS/UEFI step, press Enter and then Y. The
+   computer will restart and try to open BIOS/UEFI settings automatically.
 
-The workflow is bound to this package build and computer, and to the TPM
-endorsement-key hash whenever Windows can read it. Checkmarks are revalidated
-against the live firmware and boot identifier on every run. The saved file
-alone can never prove that a firmware update happened.
+   Find Trusted Computing, Security Device Support, or TPM Device and disable
+   it. Save the setting and let Windows start. Do not select Clear TPM, Reset
+   TPM, or Erase TPM.
 
-Logs
-----
+2. RUN THE APPLICATION AGAIN
 
-Every run creates a new detailed run-*.txt in this folder's logs directory.
-Direct TPM output, Windows TPM state, authorization and policy data, workflow
-decisions, exact file paths, and failures go there instead of onto the normal
-screen. Native Infineon and direct-transport logs are kept beside it.
+   Open this folder and start TPM-Updater.exe again. The arrow should now point
+   to the firmware update.
 
-Firmware update
----------------
+3. INSTALL THE FIRMWARE UPDATE
 
-Before a write, BitLocker protection must be suspended, Trusted Computing must
-be disabled in BIOS/UEFI, and the direct TPM must report empty platformAuth.
-The application then repeats the complete live safety check immediately before
-starting the pinned BIN for the exact source version.
+   Press Enter and then Y. Do not restart, shut down, or disconnect power while
+   the progress bar is moving. Wait for the successful-completion message.
 
-The 40-cell progress bar follows Infineon's own Completion percentage exactly.
-It is not estimated. After the native process exits, V0.8 verifies exit code,
-target version, firmware validity, 100 percent, explicit success text, and the
-absence of errors. It then redraws the checklist immediately and marks the
-mandatory reboot as the next action.
+4. RESTART WHEN REQUESTED
 
-Portable folder
----------------
+   Press Enter and then Y when the checklist points to Reboot. After Windows
+   starts, run TPM-Updater.exe again. Some older TPM versions require a second
+   firmware update; follow the next arrow if one is shown.
 
-Copy, move, rename, or re-zip this complete folder as one unit. Do not copy
-selected files. TPM-Updater.exe, TPMFactoryUpd-Direct-Win11-x64.exe,
-TVicPort.sys, the 12 BIN files, scripts, documentation, BUILD-INFO.txt, and
-SHA256SUMS.txt are all required.
+5. RE-ENABLE TRUSTED COMPUTING
 
-VERIFY-PORTABLE.cmd performs a read-only integrity check without accessing the
-TPM. The portable folder cannot rebuild itself; rebuild only from the complete
-V0.8 source package with:
+   After the final firmware update, follow the arrowed BIOS/UEFI step. Re-enable
+   the same Trusted Computing, Security Device Support, or TPM Device setting.
+   Save the setting and let Windows start.
 
-  TPM-Updater.cmd -Action Build
+   Run TPM-Updater.exe once more. It should report that the firmware is current
+   and the checklist is complete.
+
+6. RESUME BITLOCKER
+
+   Return to Manage BitLocker and select Resume protection if protection is
+   still suspended.
+
+IF SOMETHING GOES WRONG
+-----------------------
+
+- If Windows cannot open BIOS/UEFI automatically, restart manually and press
+  the motherboard's setup key during startup. Delete and F2 are common keys.
+- If the application reports an unsupported TPM or firmware version, do not
+  substitute another BIN file and do not try to force the update.
+- If the application stops with an error, open the logs folder beside it. Send
+  the newest run-*.txt file when asking for help.
+- Move or copy this complete folder as one unit. Do not move or delete selected
+  files inside it.

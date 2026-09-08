@@ -58,7 +58,7 @@ DeviceAccess_Diag(_In_z_ const char* PszFormat, ...)
 {
     va_list args;
     va_start(args, PszFormat);
-    fputs("[V0.8 DIRECT] ", stderr);
+    fputs("[V0.831 DIRECT] ", stderr);
     vfprintf(stderr, PszFormat, args);
     fputc('\n', stderr);
     fflush(stderr);

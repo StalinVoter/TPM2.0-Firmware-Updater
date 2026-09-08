@@ -17,14 +17,14 @@ $ExePath = Join-Path $DistDir 'TPMFactoryUpd-Direct-Win11-x64.exe'
 $LauncherSource = Join-Path $PackageRoot 'Source\Launcher\TPM-Updater-Launcher.c'
 $LauncherObject = Join-Path $BuildDir 'TPM-Updater-Launcher.obj'
 $LauncherExe = Join-Path $DistDir 'TPM-Updater.exe'
-$StateRoot = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.8'
+$StateRoot = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.831'
 $BootstrapCache = Join-Path $StateRoot 'BuildBootstrap'
-$FallbackVsBootstrapper = Join-Path $BootstrapCache 'vs_BuildTools.exe'
-$FallbackVsBootstrapperUrl = 'https://aka.ms/vs/17/release/vs_BuildTools.exe'
+$VsBootstrapper = Join-Path $BootstrapCache 'vs_BuildTools.exe'
+$VsBootstrapperUrl = 'https://aka.ms/vs/17/release/vs_BuildTools.exe'
 $PrivateBuildToolsPath = Join-Path $env:ProgramFiles 'Microsoft Visual Studio\IFX-TPM-BuildTools'
 $ExpectedToolVersion = '02.03.4733.00'
-$BuildId = 'IFX-TPM-UPDATER-V0.8-PORTABLE-20260907'
-$PackageName = 'Complete Windows 11 Updater Package V0.8 PORTABLE'
+$BuildId = 'IFX-TPM-UPDATER-V0.831-PORTABLE-20260908'
+$PackageName = 'Complete Windows 11 Updater Package V0.831 PORTABLE'
 $WingetPackageId = 'Microsoft.VisualStudio.BuildTools'
 
 $DriverSource = Join-Path $PackageRoot 'Driver\TVicPort.sys'
@@ -255,7 +255,7 @@ function Ensure-WinGet {
         return $path
     }
 
-    Write-Host 'WinGet is missing, unregistered, or not usable. V0.8 will repair/install it automatically.' -ForegroundColor Yellow
+    Write-Host 'WinGet is missing, unregistered, or not usable. V0.831 will repair/install it automatically.' -ForegroundColor Yellow
 
     [void](Try-RegisterExistingAppInstaller)
     $path = Get-WinGetPath
@@ -507,68 +507,50 @@ function Invoke-VisualStudioInstaller {
     return $false
 }
 
-function Get-FallbackMicrosoftBuildToolsBootstrapper {
+function Get-MicrosoftBuildToolsBootstrapper {
     Ensure-Directory $BootstrapCache
 
-    $needDownload = -not (Test-Path -LiteralPath $FallbackVsBootstrapper -PathType Leaf)
+    $needDownload = -not (Test-Path -LiteralPath $VsBootstrapper -PathType Leaf)
     if (-not $needDownload) {
-        $sig = Get-AuthenticodeSignature -LiteralPath $FallbackVsBootstrapper
+        $sig = Get-AuthenticodeSignature -LiteralPath $VsBootstrapper
         if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate -or $sig.SignerCertificate.Subject -notmatch 'Microsoft') {
-            Remove-Item -LiteralPath $FallbackVsBootstrapper -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $VsBootstrapper -Force -ErrorAction SilentlyContinue
             $needDownload = $true
         }
     }
 
     if ($needDownload) {
-        Write-Host 'Downloading the Microsoft-signed Visual Studio Build Tools bootstrapper to repair the shared VS Installer...' -ForegroundColor Yellow
+        Write-Host 'Downloading the Microsoft-signed Visual Studio Build Tools bootstrapper...' -ForegroundColor Yellow
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -UseBasicParsing -Uri $FallbackVsBootstrapperUrl -OutFile $FallbackVsBootstrapper -ErrorAction Stop
+        Invoke-WebRequest -UseBasicParsing -Uri $VsBootstrapperUrl -OutFile $VsBootstrapper -ErrorAction Stop
     }
 
-    $signature = Get-AuthenticodeSignature -LiteralPath $FallbackVsBootstrapper
+    $signature = Get-AuthenticodeSignature -LiteralPath $VsBootstrapper
     if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate -or $signature.SignerCertificate.Subject -notmatch 'Microsoft') {
-        throw 'Fallback Visual Studio bootstrapper is not validly Microsoft-signed. Refusing to execute it.'
+        throw 'Visual Studio Build Tools bootstrapper is not validly Microsoft-signed. Refusing to execute it.'
     }
-    return $FallbackVsBootstrapper
+    return $VsBootstrapper
 }
 
-function Install-BuildToolsWithWinGet {
-    param([Parameter(Mandatory)][string]$WingetPath)
-
-    Ensure-WinGetCommunitySource -WingetPath $WingetPath
-
+function Install-BuildTools {
     if (-not (Test-Path -LiteralPath $VsConfig -PathType Leaf)) {
         throw "Missing build configuration: $VsConfig"
     }
 
-    $override = "--wait --passive --norestart --nocache --installPath `"$PrivateBuildToolsPath`" --config `"$VsConfig`""
-    $wingetArgs = @(
-        'install','-e','--id',$WingetPackageId,
-        '--source','winget',
-        '--accept-source-agreements',
-        '--accept-package-agreements',
-        '--disable-interactivity',
-        '--override',$override
+    $bootstrap = Get-MicrosoftBuildToolsBootstrapper
+    $bootstrapArgs = @(
+        '--wait',
+        '--passive',
+        '--norestart',
+        '--nocache',
+        '--installPath', ('"' + $PrivateBuildToolsPath + '"'),
+        '--config', ('"' + $VsConfig + '"')
     )
-
-    Write-Host 'Installing Microsoft Visual Studio Build Tools through WinGet...' -ForegroundColor Yellow
-    $wingetOutput = @(& $WingetPath @wingetArgs 2>&1)
-    $rc = $LASTEXITCODE
-    foreach ($line in $wingetOutput) {
-        Write-Host ([string]$line)
-    }
-
-    # WinGet itself normally returns 0 when the underlying installer succeeds.
-    # If a restart is required, the post-install real compile/link probe below
-    # decides whether we can continue safely or must stop for reboot.
-    if ($rc -ne 0) {
-        throw "WinGet Build Tools installation failed with exit code $rc."
-    }
+    return (Invoke-VisualStudioInstaller -FilePath $bootstrap -Arguments $bootstrapArgs `
+        -Operation 'Installing Microsoft Visual Studio Build Tools')
 }
 
 function Install-Or-RepairBuildPrerequisites {
-    param([Parameter(Mandatory)][string]$WingetPath)
-
     if (-not (Test-Path -LiteralPath $VsConfig -PathType Leaf)) {
         throw "Missing build configuration: $VsConfig"
     }
@@ -586,7 +568,7 @@ function Install-Or-RepairBuildPrerequisites {
         if (-not $installer) {
             Write-Host 'The Visual Studio product exists but the shared Visual Studio Installer is missing.' -ForegroundColor Yellow
             Write-Host 'Repairing the shared Visual Studio installer.' -ForegroundColor Yellow
-            $bootstrap = Get-FallbackMicrosoftBuildToolsBootstrapper
+            $bootstrap = Get-MicrosoftBuildToolsBootstrapper
             [void](Invoke-VisualStudioInstaller -FilePath $bootstrap -Arguments @('--update','--quiet','--wait','--norestart') -Operation 'Restoring/updating the Microsoft Visual Studio Installer')
             $installer = Get-VisualStudioInstallerPath
             if (-not $installer) {
@@ -612,22 +594,20 @@ function Install-Or-RepairBuildPrerequisites {
     else {
         Write-Host ''
         Write-Host 'Visual Studio/Build Tools is not installed.' -ForegroundColor Cyan
-        Write-Host 'Installing the required Microsoft Build Tools through WinGet.' -ForegroundColor Cyan
-        Install-BuildToolsWithWinGet -WingetPath $WingetPath
+        Write-Host 'Installing the required Microsoft Build Tools.' -ForegroundColor Cyan
+        $rebootRequired = Install-BuildTools
     }
 
     return $rebootRequired
 }
 
 function Ensure-BuildEnvironment {
-    param([Parameter(Mandatory)][string]$WingetPath)
-
     Write-Section 'BUILD PREREQUISITE DETECTION'
 
     $working = Get-WorkingVsInstance
     if ($working) { return $working.Path }
 
-    $rebootRequired = Install-Or-RepairBuildPrerequisites -WingetPath $WingetPath
+    $rebootRequired = Install-Or-RepairBuildPrerequisites
 
     Write-Host ''
     Write-Host 'Re-testing the actual compiler + SDK capability after provisioning...' -ForegroundColor Cyan
@@ -678,7 +658,7 @@ function Publish-PortableRuntime {
         [pscustomobject]@{ Source='PORTABLE-DIST-README.txt'; Destination='README.txt' },
         [pscustomobject]@{ Source='VERSION.txt'; Destination='VERSION.txt' },
         [pscustomobject]@{ Source='VALIDATION.md'; Destination='VALIDATION.md' },
-        [pscustomobject]@{ Source='CHANGELOG-V0.8.md'; Destination='CHANGELOG-V0.8.md' },
+        [pscustomobject]@{ Source='CHANGELOG-V0.831.md'; Destination='CHANGELOG-V0.831.md' },
         [pscustomobject]@{ Source='Policy\README.txt'; Destination='POLICY-README.txt' },
         [pscustomobject]@{ Source='Infineon-Source-License.txt'; Destination='Infineon-Source-License.txt' },
         [pscustomobject]@{ Source='Firmware\Infineon-5.67-Release-Readme.txt'; Destination='Infineon-5.67-Release-Readme.txt' },
@@ -938,7 +918,7 @@ exit /b 0
         'TVicPort.sys: TVicPort.sys',
         "TVicPort.sys SHA-256: $copiedDriverHash",
         'Driver interface: direct CreateService/CreateFile/DeviceIoControl; no DLL/installer/cpd64',
-        'Bootstrap model: WinGet is automatically installed/repaired first; fresh Build Tools installs use WinGet'
+        'Bootstrap model: fresh Build Tools installs use the Microsoft-signed Visual Studio Build Tools bootstrapper directly'
     )
     $info | Set-Content -LiteralPath (Join-Path $DistDir 'BUILD-INFO.txt') -Encoding UTF8
 
@@ -960,7 +940,6 @@ exit /b 0
 Assert-Host
 Assert-BundledDriver | Out-Null
 & (Join-Path $PackageRoot 'Tests\Authorization-Gates.Tests.ps1')
-[string]$winget = [string](Ensure-WinGet)
-[string]$vsPath = [string](Ensure-BuildEnvironment -WingetPath $winget)
+[string]$vsPath = [string](Ensure-BuildEnvironment)
 Invoke-RealBuild -InstallationPath $vsPath
 return

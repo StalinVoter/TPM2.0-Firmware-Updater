@@ -98,7 +98,7 @@ Assert-Equal (@(Get-FirmwareUpgradeChain -Version '5.67.19690.2').Count) 0 `
 # Windows PowerShell 5.1 throws "Argument types do not match" when @() is
 # applied directly to certain generic List[T] values. The route tests above
 # execute the real function; these checks prevent that incompatible return
-# form from being reintroduced into any V0.8 list-producing workflow path.
+# form from being reintroduced into any V0.831 list-producing workflow path.
 $packageRootForCompatibility = Split-Path -Parent $PSScriptRoot
 $commonSourceForCompatibility = Get-Content -LiteralPath (Join-Path $packageRootForCompatibility 'UpdaterCommon.ps1') -Raw
 $uiSourceForCompatibility = Get-Content -LiteralPath (Join-Path $packageRootForCompatibility 'TPM-Updater.ps1') -Raw
@@ -174,7 +174,7 @@ Assert-Equal (Format-TpmFlashProgressBar -Percent 100 -Width 10) `
 # The fixture emits the same bare-CR progress format as TPMFactoryUpd and exits
 # immediately after 100 percent. The watcher must return with exit 0 and retain
 # the final native percentage without calling WaitForExit.
-$watchStdOut = Join-Path ([IO.Path]::GetTempPath()) ("ifx-v08-progress-{0}.stdout" -f [Guid]::NewGuid().ToString('N'))
+$watchStdOut = Join-Path ([IO.Path]::GetTempPath()) ("ifx-v083-progress-{0}.stdout" -f [Guid]::NewGuid().ToString('N'))
 $watchStdErr = "$watchStdOut.stderr"
 try {
     $watchScript = '[Console]::Out.Write("Completion: 0 %`rCompletion: 50 %`rCompletion: 100 %`r"); exit 0'
@@ -204,15 +204,15 @@ TPMFactoryUpd Ver 02.03.4733.00
        TPM operation mode                :    Operational
        TPM platformAuth                  :    Not Empty Buffer
        Remaining updates                 :    63
-[V0.8 IDENTITY] infineon=Yes unsupportedChip=No
-[V0.8 POLICY] platformPolicy handle=0x4000000C alg=0x000B digest=652351CB9FE7D86EB244A95E5AD4DDB79C1138C0BFE15B1664F69F5E74C94539
+[V0.831 IDENTITY] infineon=Yes unsupportedChip=No
+[V0.831 POLICY] platformPolicy handle=0x4000000C alg=0x000B digest=652351CB9FE7D86EB244A95E5AD4DDB79C1138C0BFE15B1664F69F5E74C94539
 "@
 $parsed = Convert-DirectInfoToState -Text $sample -InfoLog '<synthetic>'
 Assert-Equal $parsed.OperationMode 'Operational' 'live-info operation parser'
 Assert-Equal $parsed.PlatformPolicyStatus 'Reported' 'live-info policy parser'
 
 $converterText = (Get-Command Convert-DirectInfoToState).ScriptBlock.ToString()
-Assert-Equal $converterText.Contains('V0\.8') $true `
+Assert-Equal $converterText.Contains('V0\.831') $true `
     'direct-info parser must require the current escaped helper tag'
 Assert-Equal $converterText.Contains('V9\.7') $false `
     'direct-info parser must not retain the stale V9.7 escaped helper tag'
@@ -220,9 +220,9 @@ Assert-Equal $converterText.Contains('V9\.7') $false `
 $helperInfoSourcePath = Join-Path (Split-Path -Parent $PSScriptRoot) `
     'Source\TPMFactoryUpd\CommandFlow_TpmInfo.c'
 $helperInfoSource = Get-Content -LiteralPath $helperInfoSourcePath -Raw
-Assert-Equal $helperInfoSource.Contains('[V0.8 IDENTITY]') $true `
+Assert-Equal $helperInfoSource.Contains('[V0.831 IDENTITY]') $true `
     'helper source must emit the current identity tag'
-Assert-Equal $helperInfoSource.Contains('[V0.8 POLICY]') $true `
+Assert-Equal $helperInfoSource.Contains('[V0.831 POLICY]') $true `
     'helper source must emit the current policy tag'
 Assert-Equal $helperInfoSource.Contains('[V9.7 ') $false `
     'helper source must not emit stale V9.7 tags'
@@ -236,6 +236,15 @@ Assert-Equal $buildSource.Contains('/MANIFESTUAC:"level=''requireAdministrator''
     'native launcher embedded elevation manifest'
 Assert-Equal $buildSource.Contains('TPM-Updater.embedded.manifest') $true `
     'post-link launcher manifest extraction'
+Assert-Equal $buildSource.Contains('function Install-BuildToolsWithWinGet') $false `
+    'fresh Build Tools provisioning must not route installer arguments through WinGet'
+Assert-Equal $buildSource.Contains('[string]$winget = [string](Ensure-WinGet)') $false `
+    'the build entry point must not require WinGet before Build Tools provisioning'
+Assert-Equal $buildSource.Contains('$bootstrap = Get-MicrosoftBuildToolsBootstrapper') $true `
+    'fresh Build Tools provisioning must use the verified Microsoft bootstrapper directly'
+$installBranchPattern = '(?s)else\s*\{.*?Visual Studio/Build Tools is not installed.*?\$rebootRequired\s*=\s*Install-BuildTools\s*'
+Assert-Equal ([regex]::IsMatch($buildSource, $installBranchPattern)) $true `
+    'fresh Build Tools install must propagate the reboot-required result'
 $interfaceSource = Get-Content -LiteralPath (Join-Path $packageRoot 'TPM-Updater.ps1') -Raw
 Assert-Equal $interfaceSource.Contains('The computer will reboot and enter UEFI settings.') $true `
     'UEFI reboot notification'
@@ -244,7 +253,7 @@ Assert-Equal $interfaceSource.Contains("@('/r','/fw','/t','0')") $true `
 Assert-Equal $interfaceSource.Contains('Firmware update completed successfully.') $true `
     'deterministic completion banner'
 
-$staleV93Sample = $sample -replace '\[V0\.8 ', '[V9.3 '
+$staleV93Sample = $sample -replace '\[V0\.831 ', '[V9.3 '
 Assert-Throws { Convert-DirectInfoToState -Text $staleV93Sample -InfoLog '<synthetic-stale-v9.3>' } `
     'stale V9.3 helper-tag rejection'
 
@@ -256,8 +265,8 @@ TPMFactoryUpd Ver 02.03.4733.00
        TPM operation mode                :    Operational
        TPM platformAuth                  :    Not Empty Buffer
        Remaining updates                 :    64
-[V0.8 IDENTITY] infineon=Yes unsupportedChip=No
-[V0.8 POLICY] platformPolicy=unsupported-capability tpmRc=0x000001C4
+[V0.831 IDENTITY] infineon=Yes unsupportedChip=No
+[V0.831 POLICY] platformPolicy=unsupported-capability tpmRc=0x000001C4
 "@
 $legacyParsed = Convert-DirectInfoToState -Text $legacySample -InfoLog '<synthetic>'
 Assert-Equal $legacyParsed.PlatformPolicyStatus 'Unsupported capability' 'legacy policy capability parser'
@@ -289,7 +298,7 @@ Assert-Throws { Resolve-AuthorizationMode -State (New-TestState `
     -Auth 'Not Empty Buffer' -PolicyStatus 'Reported' -PolicyAlg '0x000B' `
     -PolicyDigest ('22' * 32)) -PolicyFile $null } 'unproven policy gate'
 
-$policyPath = Join-Path ([IO.Path]::GetTempPath()) ("ifx-v08-policy-test-{0}.cfg" -f [Guid]::NewGuid().ToString('N'))
+$policyPath = Join-Path ([IO.Path]::GetTempPath()) ("ifx-v083-policy-test-{0}.cfg" -f [Guid]::NewGuid().ToString('N'))
 try {
     @(
         '[POLICYOR_TPMFWUPDATE]'
@@ -334,4 +343,4 @@ Assert-Equal ("[17:00:00.000] Sending TPM Command: TPM_FieldUpgrade" -match `
     '(?im)^\[[^]]+\]\s+Sending TPM Command:\s*TPM_FieldUpgrade\s*$') `
     $true 'payload-transfer evidence parser'
 
-Write-Host 'V0.8 routing, authorization, TPM-state, console-app, UEFI-action, live-progress, process-exit, and flash-result tests passed.' -ForegroundColor Green
+Write-Host 'V0.831 routing, authorization, TPM-state, console-app, UEFI-action, live-progress, process-exit, and flash-result tests passed.' -ForegroundColor Green

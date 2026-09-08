@@ -22,11 +22,11 @@
 #include <stdio.h>
 
 /*
- * V0.8 read-only identity and policy probe.
+ * V0.831 read-only identity and policy probe.
  *
  * TPM_CAP_AUTH_POLICIES (0x00000009) returns TPML_TAGGED_POLICY.  The
  * Infineon MicroTSS in this source release predates that capability in its
- * generated union, so V0.8 sends this one GetCapability request directly and
+ * generated union, so V0.831 sends this one GetCapability request directly and
  * reports the platform hierarchy policy on stderr.  The wrapper captures it
  * in the diagnostic log; it is not printed as normal UI chatter.
  */
@@ -99,7 +99,7 @@ V94_ReportPlatformPolicy(void)
     {
         fprintf(
             stderr,
-            "[V0.8 POLICY] platformPolicy=unavailable transport=0x%08X responseBytes=%u\n",
+            "[V0.831 POLICY] platformPolicy=unavailable transport=0x%08X responseBytes=%u\n",
             unTransmit,
             unResponseSize);
         fflush(stderr);
@@ -111,7 +111,7 @@ V94_ReportPlatformPolicy(void)
     {
         fprintf(
             stderr,
-            "[V0.8 POLICY] platformPolicy=unavailable malformedResponse declaredBytes=%u responseBytes=%u\n",
+            "[V0.831 POLICY] platformPolicy=unavailable malformedResponse declaredBytes=%u responseBytes=%u\n",
             unDeclaredSize,
             unResponseSize);
         fflush(stderr);
@@ -131,14 +131,14 @@ V94_ReportPlatformPolicy(void)
              */
             fprintf(
                 stderr,
-                "[V0.8 POLICY] platformPolicy=unsupported-capability tpmRc=0x%08X\n",
+                "[V0.831 POLICY] platformPolicy=unsupported-capability tpmRc=0x%08X\n",
                 unResponseCode);
         }
         else
         {
             fprintf(
                 stderr,
-                "[V0.8 POLICY] platformPolicy=unavailable tpmRc=0x%08X\n",
+                "[V0.831 POLICY] platformPolicy=unavailable tpmRc=0x%08X\n",
                 unResponseCode);
         }
         fflush(stderr);
@@ -149,7 +149,7 @@ V94_ReportPlatformPolicy(void)
     {
         fprintf(
             stderr,
-            "[V0.8 POLICY] platformPolicy=unavailable shortSuccess responseBytes=%u\n",
+            "[V0.831 POLICY] platformPolicy=unavailable shortSuccess responseBytes=%u\n",
             unResponseSize);
         fflush(stderr);
         return;
@@ -160,7 +160,7 @@ V94_ReportPlatformPolicy(void)
     {
         fprintf(
             stderr,
-            "[V0.8 POLICY] platformPolicy=unavailable capability=0x%08X\n",
+            "[V0.831 POLICY] platformPolicy=unavailable capability=0x%08X\n",
             unCapability);
         fflush(stderr);
         return;
@@ -193,7 +193,7 @@ V94_ReportPlatformPolicy(void)
         {
             fprintf(
                 stderr,
-                "[V0.8 POLICY] platformPolicy handle=0x%08X alg=0x%04X digest=",
+                "[V0.831 POLICY] platformPolicy handle=0x%08X alg=0x%04X digest=",
                 unHandle,
                 (unsigned int)usAlg);
 
@@ -211,7 +211,7 @@ V94_ReportPlatformPolicy(void)
 
     if (!fFound)
     {
-        fprintf(stderr, "[V0.8 POLICY] platformPolicy=none\n");
+        fprintf(stderr, "[V0.831 POLICY] platformPolicy=none\n");
         fflush(stderr);
     }
 }
@@ -267,7 +267,7 @@ CommandFlow_TpmInfo_Execute(
         {
             fprintf(
                 stderr,
-                "[V0.8 IDENTITY] infineon=%s unsupportedChip=%s\n",
+                "[V0.831 IDENTITY] infineon=%s unsupportedChip=%s\n",
                 PpTpmInfo->sTpmState.attribs.infineon ? "Yes" : "No",
                 PpTpmInfo->sTpmState.attribs.unsupportedChip ? "Yes" : "No");
             fflush(stderr);

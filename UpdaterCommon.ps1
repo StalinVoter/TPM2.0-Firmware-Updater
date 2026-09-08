@@ -2,8 +2,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PackageVersion = 'Complete Windows 11 Updater Package V0.8 PORTABLE'
-$script:BuildId = 'IFX-TPM-UPDATER-V0.8-PORTABLE-20260907'
+$script:PackageVersion = 'Complete Windows 11 Updater Package V0.831 PORTABLE'
+$script:BuildId = 'IFX-TPM-UPDATER-V0.831-PORTABLE-20260908'
 $script:ToolVersion = '02.03.4733.00'
 $script:PackageRoot = $PSScriptRoot
 $script:PortableExeCandidate = Join-Path $script:PackageRoot 'TPMFactoryUpd-Direct-Win11-x64.exe'
@@ -32,7 +32,7 @@ if ($script:IsPortableRuntime) {
     $script:PortableManifestPath = $null
 }
 $script:LogDir = Join-Path $script:PackageRoot 'logs'
-$script:StateDir = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.8'
+$script:StateDir = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.831'
 $script:PlanPath = Join-Path $script:StateDir 'LastPlan.json'
 $script:SuccessPath = Join-Path $script:StateDir 'LastSuccessfulFlash.json'
 $script:WorkflowPath = Join-Path $script:StateDir 'Workflow.json'
@@ -545,7 +545,7 @@ function Assert-UpdaterExecutable {
     }
     $buildInfo = Get-Content -LiteralPath $script:BuildInfoPath -Raw
     if ($buildInfo -notmatch "(?m)^Package build ID:\s*$([regex]::Escape($script:BuildId))\s*$") {
-        throw 'The executable was not built from this V0.8 package. Rebuild from the V0.8 source package.'
+        throw 'The executable was not built from this V0.831 package. Rebuild from the V0.831 source package.'
     }
     $recordedExeHash = [regex]::Match($buildInfo, '(?im)^Executable SHA-256:\s*([0-9A-F]{64})\s*$')
     if (-not $recordedExeHash.Success) { throw 'Build identity file does not contain the executable SHA-256.' }
@@ -701,7 +701,7 @@ function Convert-DirectInfoToState {
         throw "Unexpected TPMFactoryUpd version. Log: $InfoLog"
     }
 
-    $identity = [regex]::Match($Text, '(?im)^\[V0\.8 IDENTITY\]\s+infineon=(Yes|No)\s+unsupportedChip=(Yes|No)\s*$')
+    $identity = [regex]::Match($Text, '(?im)^\[V0\.831 IDENTITY\]\s+infineon=(Yes|No)\s+unsupportedChip=(Yes|No)\s*$')
     $family = [regex]::Match($Text, '(?im)^\s*TPM family\s*:\s*([0-9.]+)\s*$')
     $fw = [regex]::Match($Text, '(?im)^\s*TPM firmware version\s*:\s*([0-9.]+)\s*$')
     $valid = [regex]::Match($Text, '(?im)^\s*TPM firmware valid\s*:\s*(Yes|No)\s*$')
@@ -723,11 +723,11 @@ function Convert-DirectInfoToState {
 
     $policy = [regex]::Match(
         $Text,
-        '(?im)^\[V0\.8 POLICY\]\s+platformPolicy\s+handle=0x4000000C\s+alg=0x([0-9A-F]{4})\s+digest=([0-9A-F]+)\s*$'
+        '(?im)^\[V0\.831 POLICY\]\s+platformPolicy\s+handle=0x4000000C\s+alg=0x([0-9A-F]{4})\s+digest=([0-9A-F]+)\s*$'
     )
-    $policyNone = $Text -match '(?im)^\[V0\.8 POLICY\]\s+platformPolicy=none\s*$'
-    $policyUnsupported = [regex]::Match($Text, '(?im)^\[V0\.8 POLICY\]\s+platformPolicy=unsupported-capability\s+tpmRc=0x([0-9A-F]{8})\s*$')
-    $policyUnavailable = [regex]::Match($Text, '(?im)^\[V0\.8 POLICY\]\s+platformPolicy=unavailable(?:\s+.*?tpmRc=0x([0-9A-F]{8}))?.*$')
+    $policyNone = $Text -match '(?im)^\[V0\.831 POLICY\]\s+platformPolicy=none\s*$'
+    $policyUnsupported = [regex]::Match($Text, '(?im)^\[V0\.831 POLICY\]\s+platformPolicy=unsupported-capability\s+tpmRc=0x([0-9A-F]{8})\s*$')
+    $policyUnavailable = [regex]::Match($Text, '(?im)^\[V0\.831 POLICY\]\s+platformPolicy=unavailable(?:\s+.*?tpmRc=0x([0-9A-F]{8}))?.*$')
 
     [pscustomobject]@{
         Manufacturer = 'IFX'

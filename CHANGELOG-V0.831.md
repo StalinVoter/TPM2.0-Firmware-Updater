@@ -1,6 +1,17 @@
-# V0.8 PORTABLE changes
+# V0.831 PORTABLE changes
 
-## V0.8 fixes
+## V0.831 fix
+
+- Fresh Build Tools installation now invokes Microsoft's signed Visual Studio
+  Build Tools bootstrapper directly. V0.83 still attempted to carry the
+  multi-word Visual Studio installer command through WinGet; Windows PowerShell
+  5.1 serialized that `--override` value incorrectly and WinGet rejected it
+  with `0x8A150002`. V0.831 removes that WinGet installation attempt entirely.
+  The bootstrapper path, signature verification, restart handling, requested
+  component configuration, and post-install compiler/SDK capability test are
+  the same ones that completed successfully during the V0.83 target build.
+
+## Changes inherited from V0.83
 
 - Corrected a Windows PowerShell 5.1 incompatibility in the new route and
   checklist collections. Generic `List[T]` values are converted with
@@ -31,16 +42,16 @@
   application cannot appear stuck after the native process has finished.
 
 - Corrected all five direct-info parser expressions to consume the current
-  `[V0.8 IDENTITY]` and `[V0.8 POLICY]` helper tags. The broken V9.8
+  `[V0.831 IDENTITY]` and `[V0.831 POLICY]` helper tags. The broken V9.8
   package retained escaped `V9\.7` expressions and therefore failed its first
   positive synthetic identity test before compilation.
 - Added explicit regression assertions that require the current escaped parser
   tag and reject the stale escaped V9.7 tag.
-- Expanded exact firmware routing from two images to 12 images. V0.8 now
+- Expanded exact firmware routing from two images to 12 images. V0.831 now
   supports all source versions represented by the supplied Infineon image set,
   including the newly supplied direct `5.63.3144.0 -> 5.67.19690.2` route.
 - Pinned every image by its exact SHA-256 and made the source version, target
-  version, filename, and hash one indivisible route. V0.8 never tries an image
+  version, filename, and hash one indivisible route. V0.831 never tries an image
   whose declared source does not exactly match the detected TPM firmware.
 - Updated source and portable-runtime completeness checks so all 12 firmware
   images must be present and protected by `SHA256SUMS.txt`.
@@ -67,7 +78,7 @@
   rejects historical version references or internal policy terminology.
 - Fixed the V9.4 post-flash false failure. Infineon's updater redraws progress
   percentages with bare carriage returns, so `Completion: 100 %` did not begin
-  a conventional newline-delimited line. V0.8 normalizes console line endings
+  a conventional newline-delimited line. V0.831 normalizes console line endings
   before evaluating the completion evidence.
 - Added a physical-flash regression fixture matching the captured successful
   `5.0.1089.2 -> 5.62.3126.2` and `5.62.3126.2 -> 5.67.19690.2` outputs. The
@@ -78,19 +89,19 @@
 - Fixed the confirmation prompt so `FLASH` is accepted case-insensitively and
   with surrounding whitespace. Inputs other than `FLASH` now print
   `Update cancelled.` instead of silently exiting.
-- Carries forward the helper protocol fix: the V0.8 C helper and
-  authorization fixtures emit `[V0.8 IDENTITY]` and `[V0.8 POLICY]`, and the
-  PowerShell parser now consumes those exact V0.8 tags instead of stale V9.3
+- Carries forward the helper protocol fix: the V0.831 C helper and
+  authorization fixtures emit `[V0.831 IDENTITY]` and `[V0.831 POLICY]`, and the
+  PowerShell parser now consumes those exact V0.831 tags instead of stale V9.3
   tags.
-- Added a regression assertion that accepts V0.8 helper output and rejects
+- Added a regression assertion that accepts V0.831 helper output and rejects
   stale V9.3 helper tags.
 
-V0.8 preserves the authorization correction exposed by target testing of V9.3
+V0.831 preserves the authorization correction exposed by target testing of V9.3
 and the portable-service correction introduced in V9.3.
 
 - A stopped `TVICPORT` service whose absolute `ImagePath` refers to an earlier
   folder is safely relocated to the pinned `TVicPort.sys` beside the running
-  V0.8 launcher. The service must be a kernel-driver service; an existing
+  V0.831 launcher. The service must be a kernel-driver service; an existing
   on-disk driver must match the pinned hash. A running service whose original
   image is missing remains fail-closed because its loaded image cannot be
   authenticated.
@@ -100,7 +111,7 @@ and the portable-service correction introduced in V9.3.
   applying success-response length checks.
 - TPM return code `0x000001C4` is classified precisely: legacy firmware rejects
   the `TPM_CAP_AUTH_POLICIES` selector rather than suffering a transport error.
-- With non-empty `platformAuth` and that exact legacy result, V0.8 is
+- With non-empty `platformAuth` and that exact legacy result, V0.831 is
   fail-closed. It does not offer `FLASH`, accept a PolicyFile, or issue
   `TPM2_FieldUpgradeStartVendor` because the live authPolicy cannot be proven.
 - The V9.3 target response `0x0000012F` is decoded as

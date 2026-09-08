@@ -1,8 +1,8 @@
-# V0.8 validation record
+# V0.831 validation record
 
-## V0.8 regression coverage
+## V0.831 regression coverage
 
-The source-package test gate also checks the V0.8 operator layer: complete
+The source-package test gate also checks the V0.831 operator layer: complete
 one- and two-hop workflow construction, Windows-visible versus BIOS-hidden TPM
 classification, the native launcher source and embedded elevation linker flag,
 the `/r /fw /t 0` UEFI action, and the deterministic success banner. Portable
@@ -15,7 +15,7 @@ accepted only when the live firmware has reached it, and the reboot row is
 completed only after the Windows boot identifier changes. The TPM endorsement
 public-key SHA-256 is compared whenever the TPM is exposed to Windows.
 
-The V0.8 helper and synthetic test fixtures use V0.8 identity/policy tags, and
+The V0.831 helper and synthetic test fixtures use V0.831 identity/policy tags, and
 `Convert-DirectInfoToState` matches that protocol exactly. The authorization
 regression fixture explicitly rejects stale V9.3 tags.
 
@@ -30,7 +30,7 @@ surrounding whitespace, an empty response, and a non-FLASH response.
 
 The flash-result fixtures reproduce representative successful physical
 first- and second-stage outputs in which progress percentages are separated by
-bare carriage returns. They prove that V0.8 recognizes the final 100-percent
+bare carriage returns. They prove that V0.831 recognizes the final 100-percent
 update and exact target version while retaining independent rejections for a
 wrong target version, nonzero exit, stdout error code, and internal-log error.
 
@@ -59,7 +59,7 @@ V8.1.3 implementation; only its diagnostic version label changed.
 
 The supplied 5.62-to-5.67 record had process exit 0, exact target
 `5.67.19690.2`, valid new firmware, 100% completion, the explicit Infineon
-success message, and 319 FieldUpgrade transfer commands. V0.8 preserves that
+success message, and 319 FieldUpgrade transfer commands. V0.831 preserves that
 transport and those update-specific success gates.
 
 ## Authorization tests
@@ -74,13 +74,13 @@ or compilation.
 
 The legacy classification is based on target evidence from firmware
 `5.0.1089.2`: transport success, a valid 10-byte TPM response, and return code
-`0x000001C4` (`TPM_RC_VALUE` for capability parameter 1). V0.8 parses the TPM
+`0x000001C4` (`TPM_RC_VALUE` for capability parameter 1). V0.831 parses the TPM
 header before requiring the longer success payload.
 
 The supplied V9.3 target log further proves that StartAuthSession and
 PolicyCommandCode succeeded but FieldUpgradeStartVendor returned raw TPM code
 `0x0000012F` (`TPM_RC_AUTH_UNAVAILABLE`). No subsequent `TPM_FieldUpgrade`
-payload command appears. V0.8 therefore blocks this state during preflight and
+payload command appears. V0.831 therefore blocks this state during preflight and
 does not rely on an authorization attempt as a policy probe.
 
 ## Portable-output checks
@@ -99,15 +99,15 @@ The wrapper also repairs a stopped, stale `TVICPORT` absolute `ImagePath` after
 verifying the service is a kernel driver and any existing image has the pinned
 hash. A running registration with a missing image is deliberately rejected.
 
-## Validation boundary
+## Remaining hardware validation
 
-This V0.8 source archive was assembled and archive-validated outside the target
-Windows 11 machine. Before `dist` exists, a real V0.8 MSVC build remains to be
+This V0.831 source archive was assembled and archive-validated outside the target
+Windows 11 machine. Before `dist` exists, a real V0.831 MSVC build remains to be
 performed on a Windows build computer. When the build explicitly reports
 `Portable runtime ready`, its build, link, executable smoke test, publication,
 and portable integrity verification have completed successfully. Merely finding
 an incomplete `dist` left after a failed build is not success. A BIOS-enabled
-physical TPM flash of V0.8 remains hardware validation. Build failures stop
+physical TPM flash of V0.831 remains hardware validation. Build failures stop
 before a portable dist is declared complete. The newly fail-closed legacy gate
 must be confirmed on the target by observing that it refuses the BIOS-enabled
 non-empty/unqueryable state and proceeds only after the live probe reports

@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $manifest = Join-Path $root 'SHA256SUMS.txt'
-$expectedBuildId = 'IFX-TPM-UPDATER-V0.8-PORTABLE-20260907'
+$expectedBuildId = 'IFX-TPM-UPDATER-V0.831-PORTABLE-20260908'
 $expectedDriver = '9c9ab56c8bcf5ec958e7c2346f23a3027f69abdf8af923b591518eee64ad98ad'
 $expectedFirmwareHashes = [ordered]@{
     'TPM20_5.0.1089.2_to_TPM20_5.62.3126.2.BIN' = 'c5a51a6a3b866ead2a9266f89b150b2f60eccb113487582592a293698ba26015'
@@ -73,13 +73,13 @@ foreach ($name in $required) {
 
 $markerText = Get-Content -LiteralPath (Join-Path $root 'PORTABLE-RUNTIME.txt') -Raw
 if ($markerText -notmatch "(?m)^Package build ID:\s*$([regex]::Escape($expectedBuildId))\s*$") {
-    throw 'PORTABLE-RUNTIME.txt does not identify this exact V0.8 build.'
+    throw 'PORTABLE-RUNTIME.txt does not identify this exact V0.831 build.'
 }
 
 $buildInfoPath = Join-Path $root 'BUILD-INFO.txt'
 $buildInfo = Get-Content -LiteralPath $buildInfoPath -Raw
 if ($buildInfo -notmatch "(?m)^Package build ID:\s*$([regex]::Escape($expectedBuildId))\s*$") {
-    throw 'BUILD-INFO.txt does not identify this exact V0.8 portable build.'
+    throw 'BUILD-INFO.txt does not identify this exact V0.831 portable build.'
 }
 $recordedExeHash = [regex]::Match($buildInfo, '(?im)^Executable SHA-256:\s*([0-9A-F]{64})\s*$')
 if (-not $recordedExeHash.Success) { throw 'BUILD-INFO.txt lacks the executable SHA-256.' }
@@ -99,5 +99,5 @@ foreach ($entry in $expectedFirmwareHashes.GetEnumerator()) {
     }
 }
 
-Write-Host 'V0.8 portable dist verification passed.' -ForegroundColor Green
+Write-Host 'V0.831 portable dist verification passed.' -ForegroundColor Green
 Write-Host "This folder may be moved or renamed as one unit:`n  $root" -ForegroundColor Cyan
