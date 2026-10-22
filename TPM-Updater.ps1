@@ -26,7 +26,7 @@ function Invoke-SelfElevation {
 function Ensure-UpdaterBuilt {
     param([switch]$Force)
     if ($script:IsPortableRuntime) {
-        if ($Force) { throw 'This portable runtime cannot rebuild itself. Use the complete V0.831 source package.' }
+        if ($Force) { throw 'This is a ready-to-run portable package. Extract it and start TPM-Updater.exe; no build is required.' }
         Assert-PortableRuntimeIntegrity
         if (Test-UpdaterExecutable) { return }
         throw 'The portable updater failed its integrity or startup check.'
@@ -40,7 +40,7 @@ function Initialize-RunDetailsLog {
     Ensure-Directories
     $script:RunDetailsPath = Join-Path $script:LogDir ("run-{0}.txt" -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
     @(
-        'IFX TPM Firmware Updater V0.831 - detailed run log'
+        'IFX TPM Firmware Updater V0.86 - detailed run log'
         "Started UTC: $((Get-Date).ToUniversalTime().ToString('o'))"
         "Package: $script:PackageVersion"
         "Build ID: $script:BuildId"
@@ -118,7 +118,7 @@ function Test-WorkflowUsable {
     param([AllowNull()]$Workflow,[Parameter(Mandatory)]$DirectState,[Parameter(Mandatory)][string]$ComputerFingerprint,[AllowNull()][string]$EndorsementKeyHash)
     if ($null -eq $Workflow) { return $false }
     try {
-        if ([int]$Workflow.SchemaVersion -ne 100 -or [string]$Workflow.PackageBuildId -ne $script:BuildId) { return $false }
+        if ([int]$Workflow.SchemaVersion -ne 100 -or $script:CompatibleWorkflowBuildIds -notcontains [string]$Workflow.PackageBuildId) { return $false }
         if ([string]$Workflow.ComputerFingerprint -ne $ComputerFingerprint) { return $false }
         if ($EndorsementKeyHash -and [string]$Workflow.TpmEndorsementKeyHash -and [string]$Workflow.TpmEndorsementKeyHash -ne $EndorsementKeyHash) { return $false }
         if (@(Get-WorkflowVersions -Workflow $Workflow) -notcontains [string]$DirectState.Version) { return $false }
@@ -128,10 +128,50 @@ function Test-WorkflowUsable {
         for ($index = 0; $index -lt $expected.Count; $index++) {
             if ([string]$expected[$index].SourceVersion -ne [string]$saved[$index].SourceVersion -or
                 [string]$expected[$index].TargetVersion -ne [string]$saved[$index].TargetVersion -or
+                [string]$expected[$index].FirmwareFile -ne [string]$saved[$index].FirmwareFile -or
                 [string]$expected[$index].FirmwareSha256 -ne [string]$saved[$index].FirmwareSha256) { return $false }
         }
     } catch { return $false }
     return $true
+}
+
+function Get-WorkflowRestartReason {
+    param([AllowNull()]$Workflow,[Parameter(Mandatory)]$DirectState,[Parameter(Mandatory)][string]$ComputerFingerprint,[Parameter(Mandatory)][string]$BootIdentifier,[AllowNull()][string]$EndorsementKeyHash)
+    if ($null -eq $Workflow) {
+        if ($script:LoadedWorkflowPath) { return 'The saved update session could not be read.' }
+        return $null
+    }
+    if (-not (Test-WorkflowUsable -Workflow $Workflow -DirectState $DirectState -ComputerFingerprint $ComputerFingerprint -EndorsementKeyHash $EndorsementKeyHash)) {
+        return 'The saved update session does not match this computer, TPM identity, firmware path, or package.'
+    }
+    try {
+        $versions = @(Get-WorkflowVersions -Workflow $Workflow)
+        $liveIndex = [array]::IndexOf($versions,[string]$DirectState.Version)
+        $pending = [string]$Workflow.PendingRebootTarget
+        $pendingBoot = [string]$Workflow.PendingRebootBootId
+        if ($pending) {
+            $pendingIndex = [array]::IndexOf($versions,$pending)
+            if ($pendingIndex -le 0 -or -not $pendingBoot) {
+                return 'The saved update session contains an invalid pending reboot.'
+            }
+            if ($liveIndex -lt $pendingIndex -and $pendingBoot -ne $BootIdentifier) {
+                return 'The connected TPM has older firmware than the update recorded in the previous session.'
+            }
+        } elseif ($pendingBoot) {
+            return 'The saved update session contains an incomplete reboot marker.'
+        }
+        foreach ($target in (@($Workflow.CompletedTargets) + @($Workflow.RebootedAfterTargets))) {
+            $targetIndex = [array]::IndexOf($versions,[string]$target)
+            if ($targetIndex -le 0) { return 'The saved update session contains a target outside its firmware path.' }
+            if ($liveIndex -lt $targetIndex) {
+                # A just-completed native flash may not expose its new version
+                # until restart. Keep the mandatory reboot in that same boot.
+                if ([string]$target -eq $pending -and $pendingBoot -eq $BootIdentifier) { continue }
+                return 'The connected TPM has older firmware than the progress recorded in the previous session.'
+            }
+        }
+    } catch { return 'The saved update session contains unreadable progress information.' }
+    return $null
 }
 
 function Add-UniqueWorkflowValue {
@@ -158,13 +198,20 @@ function Update-WorkflowFromLiveState {
 
     if ([string]$Workflow.PendingRebootTarget) {
         $pendingIndex = [array]::IndexOf($versions, [string]$Workflow.PendingRebootTarget)
-        if ($liveIndex -lt $pendingIndex) { throw 'The saved workflow reports a completed update that the live TPM firmware does not confirm.' }
+        if ($pendingIndex -le 0) { throw 'The saved workflow contains an invalid pending reboot target.' }
+        if ($liveIndex -lt $pendingIndex) {
+            if ([string]$Workflow.PendingRebootBootId -ne $BootIdentifier) {
+                throw 'The saved workflow reports a completed update that the live TPM firmware does not confirm.'
+            }
+            Write-RunDetail 'The native flash completed in this boot; its target is not yet exposed by the TPM. The mandatory reboot remains required.'
+        }
         if ([string]$Workflow.PendingRebootBootId -ne $BootIdentifier) {
             Add-UniqueWorkflowValue -Workflow $Workflow -Property 'RebootedAfterTargets' -Value ([string]$Workflow.PendingRebootTarget)
             $Workflow.PendingRebootTarget = $null
             $Workflow.PendingRebootBootId = $null
         }
     }
+    $Workflow.PackageBuildId = $script:BuildId
     $Workflow.UpdatedUtc = (Get-Date).ToUniversalTime().ToString('o')
     Save-Workflow $Workflow
     return $Workflow
@@ -177,7 +224,8 @@ function Get-CurrentRouteFromWorkflow {
 }
 
 function Get-UiAction {
-    param([Parameter(Mandatory)]$Workflow,[Parameter(Mandatory)]$DirectState,[Parameter(Mandatory)][string]$TrustedComputingStatus,[Parameter(Mandatory)][string]$BootIdentifier)
+    param([Parameter(Mandatory)]$Workflow,[Parameter(Mandatory)]$DirectState,[Parameter(Mandatory)][string]$TrustedComputingStatus,[Parameter(Mandatory)][string]$BootIdentifier,[switch]$NeedsNewWorkflow)
+    if ($NeedsNewWorkflow) { return [pscustomobject]@{ Type='StartNewWorkflow'; RowKey='new-session'; Route=$null } }
     $version = [string]$DirectState.Version
     $pending = [string]$Workflow.PendingRebootTarget
     if ($pending -and [string]$Workflow.PendingRebootBootId -eq $BootIdentifier) {
@@ -205,7 +253,7 @@ function Get-ChecklistRows {
     $rebootedTargets = @($Workflow.RebootedAfterTargets)
     $atFinal = [string]$DirectState.Version -eq '5.67.19690.2'
     if (@($Workflow.Path).Count -gt 0) {
-        $rows.Add([pscustomobject]@{ Key='disable'; Text='Disable Trusted Computing in BIOS/UEFI'; Completed=($TrustedComputingStatus -eq 'Disabled' -or $completedTargets.Count -gt 0 -or $atFinal) })
+        $rows.Add([pscustomobject]@{ Key='disable'; Text='Reboot and disable Trusted Computing in BIOS/UEFI'; Completed=($TrustedComputingStatus -eq 'Disabled' -or $completedTargets.Count -gt 0 -or $atFinal) })
         $path = @($Workflow.Path)
         for ($index = 0; $index -lt $path.Count; $index++) {
             $route = $path[$index]
@@ -251,6 +299,13 @@ function Show-Interface {
     }
     Write-Host ''
     if ($Banner) { Write-Host $Banner -ForegroundColor Green; Write-Host '' }
+    if ($UiAction.Type -eq 'StartNewWorkflow') {
+        Write-Host 'Saved progress does not match the connected TPM. You can start a new update.' -ForegroundColor Yellow
+        Write-Host 'The previous update session will be kept.' -ForegroundColor Gray
+        Write-Host ''
+        $newSessionRow = [pscustomobject]@{ Key='new-session'; Text='Start a new update for the connected TPM'; Completed=$false }
+        Write-ChecklistRow -Row $newSessionRow -Current $true
+    }
     foreach ($row in @(Get-ChecklistRows -Workflow $Workflow -DirectState $DirectState -TrustedComputingStatus $TrustedComputingStatus -UiAction $UiAction)) {
         Write-ChecklistRow -Row $row -Current ([string]$row.Key -eq [string]$UiAction.RowKey)
     }
@@ -272,23 +327,57 @@ function Confirm-Action {
     }
 }
 
+function Invoke-NewWorkflowAction {
+    param([Parameter(Mandatory)]$Context)
+    if (-not (Confirm-Action -Lines @(
+        ("Start a new update for the TPM running firmware {0}?" -f $Context.DirectState.Version),
+        'The previous update session will be kept. This step does not write firmware.'
+    ))) { return $false }
+    $live = Get-IfxTpmState
+    Write-RunObject -Label 'New-session direct TPM recheck' -Value $live
+    if ([string]$live.Version -ne [string]$Context.DirectState.Version) {
+        throw 'The TPM firmware changed before the new session could be started. Run the updater again.'
+    }
+    if ([string]$live.Version -ne '5.67.19690.2') { Assert-StateReadyForUpdate $live }
+    elseif ($live.Manufacturer -ne 'IFX' -or $live.Family -ne '2.0' -or
+            $live.UnsupportedChip -ne 'No' -or $live.FirmwareValid -ne 'Yes' -or
+            $live.OperationMode -ne 'Operational') {
+        throw 'The connected TPM is not a supported operational Infineon TPM 2.0.'
+    }
+    # A fresh record copies no completed targets, boot markers, or identity
+    # from the previous TPM. Only the current probe and current identity apply.
+    $fresh = New-WorkflowForState -DirectState $live -ComputerFingerprint $Context.ComputerFingerprint -EndorsementKeyHash $Context.EndorsementKeyHash
+    [void](Archive-LoadedWorkflow)
+    Save-Workflow $fresh
+    Write-RunObject -Label 'Started fresh workflow for connected TPM' -Value $fresh
+    return $true
+}
+
 function Invoke-ShutdownAction {
     param([Parameter(Mandatory)][string]$Mode,[Parameter(Mandatory)]$Workflow)
     if ($Mode -eq 'UefiDisable') {
         Assert-BitLockerProtectionOff
-        if (-not (Confirm-Action -Lines @('The computer will reboot and enter UEFI settings.','Save your work. In UEFI, disable Trusted Computing / Security Device Support.'))) { return $false }
+        if (-not (Confirm-Action -Lines @(
+            'Save all unsaved documents and close your programs before continuing.',
+            'The computer will restart normally. Enter BIOS/UEFI manually during startup using your motherboard setup key (commonly Delete or F2).',
+            'Disable Trusted Computing / Security Device Support, save the setting, and let Windows start.'
+        ))) { return $false }
         $Workflow.UefiDisableRequestedUtc = (Get-Date).ToUniversalTime().ToString('o')
         Save-Workflow $Workflow
-        Write-RunDetail 'Requested shutdown.exe /r /fw /t 0 for the disable-Trusted-Computing step.'
-        $arguments = @('/r','/fw','/t','0')
+        Write-RunDetail 'Requested shutdown.exe /r /t 0 for the disable-Trusted-Computing step. The user must enter BIOS/UEFI manually during startup.'
+        $arguments = @('/r','/t','0')
     } elseif ($Mode -eq 'UefiEnable') {
-        if (-not (Confirm-Action -Lines @('The computer will reboot and enter UEFI settings.','Save your work. In UEFI, enable Trusted Computing / Security Device Support.'))) { return $false }
+        if (-not (Confirm-Action -Lines @(
+            'Save all unsaved documents and close your programs before continuing.',
+            'The computer will restart normally. Enter BIOS/UEFI manually during startup using your motherboard setup key (commonly Delete or F2).',
+            'Enable Trusted Computing / Security Device Support, save the setting, and let Windows start.'
+        ))) { return $false }
         $Workflow.UefiEnableRequestedUtc = (Get-Date).ToUniversalTime().ToString('o')
         Save-Workflow $Workflow
-        Write-RunDetail 'Requested shutdown.exe /r /fw /t 0 for the enable-Trusted-Computing step.'
-        $arguments = @('/r','/fw','/t','0')
+        Write-RunDetail 'Requested shutdown.exe /r /t 0 for the enable-Trusted-Computing step. The user must enter BIOS/UEFI manually during startup.'
+        $arguments = @('/r','/t','0')
     } else {
-        if (-not (Confirm-Action -Lines @('The firmware update is complete and Windows must restart before the next step.','Save your work. The computer will reboot.'))) { return $false }
+        if (-not (Confirm-Action -Lines @('The firmware update is complete and Windows must restart before the next step.','Save all unsaved documents and close your programs before continuing. The computer will restart normally.'))) { return $false }
         Write-RunDetail 'Requested shutdown.exe /r /t 0 for a mandatory intermediate reboot.'
         $arguments = @('/r','/t','0')
     }
@@ -349,11 +438,11 @@ function Invoke-SelectedFirmwareUpdate {
 function Get-FriendlyErrorMessage {
     param([Parameter(Mandatory)][string]$TechnicalMessage)
     if ($TechnicalMessage -match '(?i)BitLocker protection is ON') { return 'BitLocker protection must be suspended before TPM maintenance can continue.' }
-    if ($TechnicalMessage -match '(?i)BitLocker|manage-bde') { return 'The updater could not verify that BitLocker protection is suspended.' }
+    if ($TechnicalMessage -match '(?i)BitLocker|ProtectionStatus|GetProtectionStatus') { return 'The updater could not safely determine the BitLocker protection state of the Windows system drive.' }
     if ($TechnicalMessage -match '(?i)did not positively identify|not a supported Infineon|usable TPM 2\.0') { return 'No supported discrete Infineon TPM 2.0 module was detected.' }
     if ($TechnicalMessage -match '(?i)Unsupported TPM firmware version|No update route') { return 'This TPM firmware version is not supported by the firmware files in this updater.' }
     if ($TechnicalMessage -match '(?i)Trusted Computing is still enabled|Security Device Support is enabled') { return 'Trusted Computing is still enabled in BIOS/UEFI. Disable it before updating the TPM firmware.' }
-    if ($TechnicalMessage -match '(?i)shutdown|requested reboot') { return 'Windows could not reboot into the requested settings. Restart and enter BIOS/UEFI manually.' }
+    if ($TechnicalMessage -match '(?i)shutdown|requested reboot') { return 'Windows could not start the restart. Save your work and restart the computer manually.' }
     if ($TechnicalMessage -match '(?i)timed out') { return 'The TPM did not respond in time. No firmware update was started.' }
     return 'The updater could not continue.'
 }
@@ -388,13 +477,23 @@ function Get-InitialContext {
     Write-RunFileSection -Label 'DIRECT TPM PROBE' -Path ([string]$directState.InfoLog)
     Write-RunFileSection -Label 'WINDOWS TPM PROBE' -Path ([string]$windowsStatus.LogPath)
     $workflow = Get-Workflow
+    Write-RunDetail "Loaded workflow path: $(if($script:LoadedWorkflowPath){$script:LoadedWorkflowPath}else{'<none>'})"
     Write-RunObject -Label 'Loaded workflow' -Value $workflow
-    if (-not (Test-WorkflowUsable -Workflow $workflow -DirectState $directState -ComputerFingerprint $computerFingerprint -EndorsementKeyHash $ekHash)) {
+    $restartReason = Get-WorkflowRestartReason -Workflow $workflow -DirectState $directState -ComputerFingerprint $computerFingerprint -BootIdentifier $bootIdentifier -EndorsementKeyHash $ekHash
+    $needsNewWorkflow = -not [string]::IsNullOrWhiteSpace($restartReason)
+    if ($needsNewWorkflow) {
+        Write-RunDetail "A fresh update session is available: $restartReason"
+        # Show a clean candidate checklist. Preserve the saved record until
+        # the user chooses Start a new update and confirms it.
+        $workflow = New-WorkflowForState -DirectState $directState -ComputerFingerprint $computerFingerprint -EndorsementKeyHash $ekHash
+    } elseif ($null -eq $workflow) {
         $workflow = New-WorkflowForState -DirectState $directState -ComputerFingerprint $computerFingerprint -EndorsementKeyHash $ekHash
         Save-Workflow $workflow
-        Write-RunDetail 'Created a new workflow because no saved workflow was valid for this computer, TPM identity, firmware path, and package build.'
+        Write-RunDetail 'Created the first workflow for this computer and connected TPM.'
     }
-    $workflow = Update-WorkflowFromLiveState -Workflow $workflow -DirectState $directState -BootIdentifier $bootIdentifier -EndorsementKeyHash $ekHash
+    if (-not $needsNewWorkflow) {
+        $workflow = Update-WorkflowFromLiveState -Workflow $workflow -DirectState $directState -BootIdentifier $bootIdentifier -EndorsementKeyHash $ekHash
+    }
     Write-RunObject -Label 'Revalidated workflow' -Value $workflow
     return [pscustomobject]@{
         DirectState=$directState
@@ -404,6 +503,8 @@ function Get-InitialContext {
         ComputerFingerprint=$computerFingerprint
         BootIdentifier=$bootIdentifier
         Workflow=$workflow
+        NeedsNewWorkflow=$needsNewWorkflow
+        WorkflowRestartReason=$restartReason
     }
 }
 
@@ -417,7 +518,7 @@ try {
     Ensure-UpdaterBuilt -Force:$Rebuild
     $context = Get-InitialContext
     while ($true) {
-        $uiAction = Get-UiAction -Workflow $context.Workflow -DirectState $context.DirectState -TrustedComputingStatus $context.TrustedComputingStatus -BootIdentifier $context.BootIdentifier
+        $uiAction = Get-UiAction -Workflow $context.Workflow -DirectState $context.DirectState -TrustedComputingStatus $context.TrustedComputingStatus -BootIdentifier $context.BootIdentifier -NeedsNewWorkflow:$context.NeedsNewWorkflow
         Show-Interface -Workflow $context.Workflow -DirectState $context.DirectState -TrustedComputingStatus $context.TrustedComputingStatus -UiAction $uiAction -Banner $script:LastBanner
         $script:LastBanner = $null
         if ($Action -eq 'Status') { return }
@@ -425,6 +526,12 @@ try {
         if ($key.Key -eq [ConsoleKey]::Escape) { return }
         if ($key.Key -ne [ConsoleKey]::Enter) { continue }
         switch ($uiAction.Type) {
+            'StartNewWorkflow' {
+                if (Invoke-NewWorkflowAction -Context $context) {
+                    $context = Get-InitialContext
+                    $script:LastBanner = 'A fresh update checklist is ready for the connected TPM.'
+                }
+            }
             'EnterUefiDisable' { if (Invoke-ShutdownAction -Mode 'UefiDisable' -Workflow $context.Workflow) { return } }
             'EnterUefiEnable' { if (Invoke-ShutdownAction -Mode 'UefiEnable' -Workflow $context.Workflow) { return } }
             'Reboot' { if (Invoke-ShutdownAction -Mode 'Reboot' -Workflow $context.Workflow) { return } }

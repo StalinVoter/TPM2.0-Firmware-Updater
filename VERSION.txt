@@ -1,4 +1,5 @@
-Complete Windows 11 Updater Package V0.831 PORTABLE
-Build ID: IFX-TPM-UPDATER-V0.831-PORTABLE-20260908
-Source package revision: V0.831 (direct Build Tools bootstrapper fix, PowerShell 5.1 route-array fix, elevated checklist app, resumable workflow, 12 pinned firmware routes)
-TPMFactoryUpd source: 02.03.4733.00
+Complete Windows 11 Updater Package V0.86 PORTABLE
+Build ID: IFX-TPM-UPDATER-V0.86-PORTABLE-20261022
+Portable wrapper revision: V0.86 (normal restarts, manual BIOS setup instructions, save-work warnings)
+Retains V0.85 replacement-TPM workflow and numeric system-drive BitLocker fixes
+Native helper source/protocol: V0.831; TPMFactoryUpd 02.03.4733.00 (recompiled by source builds)

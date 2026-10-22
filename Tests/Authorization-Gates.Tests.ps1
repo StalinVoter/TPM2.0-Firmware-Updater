@@ -179,7 +179,12 @@ $watchStdErr = "$watchStdOut.stderr"
 try {
     $watchScript = '[Console]::Out.Write("Completion: 0 %`rCompletion: 50 %`rCompletion: 100 %`r"); exit 0'
     $watchEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($watchScript))
-    $watchProcess = Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+    # Use Windows PowerShell on the build host, or the current PowerShell
+    # executable for this harmless child-process test on a non-Windows host.
+    $watchPowerShell = if ($env:OS -eq 'Windows_NT') {
+        "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+    } else { Join-Path $PSHOME 'pwsh' }
+    $watchProcess = Start-Process -FilePath $watchPowerShell `
         -ArgumentList @('-NoLogo','-NoProfile','-EncodedCommand',$watchEncoded) `
         -PassThru -NoNewWindow -RedirectStandardOutput $watchStdOut -RedirectStandardError $watchStdErr
     $watchResult = Wait-FlashProcessWithProgress -Process $watchProcess -StdOutPath $watchStdOut -Quiet
@@ -246,10 +251,16 @@ $installBranchPattern = '(?s)else\s*\{.*?Visual Studio/Build Tools is not instal
 Assert-Equal ([regex]::IsMatch($buildSource, $installBranchPattern)) $true `
     'fresh Build Tools install must propagate the reboot-required result'
 $interfaceSource = Get-Content -LiteralPath (Join-Path $packageRoot 'TPM-Updater.ps1') -Raw
-Assert-Equal $interfaceSource.Contains('The computer will reboot and enter UEFI settings.') $true `
-    'UEFI reboot notification'
-Assert-Equal $interfaceSource.Contains("@('/r','/fw','/t','0')") $true `
-    'Windows firmware-settings reboot action'
+Assert-Equal $interfaceSource.Contains('The computer will reboot and enter UEFI settings.') $false `
+    'no automatic firmware-settings promise'
+Assert-Equal $interfaceSource.Contains("@('/r','/fw','/t','0')") $false `
+    'no Windows firmware-settings reboot request'
+Assert-Equal $interfaceSource.Contains("@('/r','/t','0')") $true `
+    'ordinary Windows restart action'
+Assert-Equal $interfaceSource.Contains('Save all unsaved documents') $true `
+    'save-work warning before restart'
+Assert-Equal $interfaceSource.Contains('Enter BIOS/UEFI manually') $true `
+    'manual firmware-settings instruction'
 Assert-Equal $interfaceSource.Contains('Firmware update completed successfully.') $true `
     'deterministic completion banner'
 
@@ -343,4 +354,4 @@ Assert-Equal ("[17:00:00.000] Sending TPM Command: TPM_FieldUpgrade" -match `
     '(?im)^\[[^]]+\]\s+Sending TPM Command:\s*TPM_FieldUpgrade\s*$') `
     $true 'payload-transfer evidence parser'
 
-Write-Host 'V0.831 routing, authorization, TPM-state, console-app, UEFI-action, live-progress, process-exit, and flash-result tests passed.' -ForegroundColor Green
+Write-Host 'V0.86 routing, authorization, TPM-state, console-app, normal-restart, live-progress, process-exit, and flash-result tests passed.' -ForegroundColor Green

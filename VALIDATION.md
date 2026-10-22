@@ -1,114 +1,94 @@
-# V0.831 validation record
+# Version 0.86 validation — 2026-10-22
 
-## V0.831 regression coverage
+## Baseline and scope
 
-The source-package test gate also checks the V0.831 operator layer: complete
-one- and two-hop workflow construction, Windows-visible versus BIOS-hidden TPM
-classification, the native launcher source and embedded elevation linker flag,
-the `/r /fw /t 0` UEFI action, and the deterministic success banner. Portable
-verification requires `TPM-Updater.exe` in the flat manifest and verifies its
-recorded SHA-256 independently from the direct TPM helper.
+Based on the released `Infineon-TPM-Firmware-Updater-v0.85-PORTABLE.zip`.
+Baseline SHA-256:
+`3aca373855c6b84a950d60f65898c9483311fc4efe09b8b83ad6a5070f45a1e9`.
+Changes are normal restart behavior at BIOS steps, the corresponding warnings,
+restart errors, version metadata, and explicit 0.85 workflow compatibility.
 
-Workflow checkmarks are designed to be evidence-derived. The current TPM
-firmware determines completed update rows; a stored pending-reboot target is
-accepted only when the live firmware has reached it, and the reboot row is
-completed only after the Windows boot identifier changes. The TPM endorsement
-public-key SHA-256 is compared whenever the TPM is exposed to Windows.
+## Executed regression checks
 
-The V0.831 helper and synthetic test fixtures use V0.831 identity/policy tags, and
-`Convert-DirectInfoToState` matches that protocol exactly. The authorization
-regression fixture explicitly rejects stale V9.3 tags.
+REGRESSION-TESTS.ps1 loads the actual shipped function definitions and uses
+simulated Windows/TPM/provider/process responses. A process recorder replaces
+Start-Process in restart tests; real shutdown.exe is never launched.
 
-The BIOS-setting gate requires a two-paragraph end-user message containing only
-the blocking condition and the corrective BIOS/UEFI action. A regression check
-rejects messages containing previous-version references, `platformAuth`,
-`authPolicy`, TPM capability/return-code identifiers, or PolicyFile details.
+56 cases / 179 assertions passed under official PowerShell 7.4.6 on Linux:
 
-The flash confirmation is normalized with `Trim()` and a case-insensitive
-comparison. Regression assertions cover uppercase, lowercase, mixed case with
-surrounding whitespace, an empty response, and a non-FLASH response.
+- All 44 inherited 0.85 replacement-TPM, BitLocker, native protocol, and
+  original safety-gate tests passed.
+- Disable, enable, and intermediate reboot actions each use exactly `/r /t 0`.
+  No firmware-setup request or forced-close flag is sent.
+- Each action warns to save unsaved documents and close programs before the
+  recorded restart request. BIOS steps explain manual setup entry and give the
+  correct disable/enable instruction. Requested-step timestamps are saved.
+- Cancelling each action leaves the workflow bytes unchanged and requests no
+  restart. Nonzero restart exit codes produce an error and a technical log;
+  they never create firmware or reboot completion checkmarks.
+- BitLocker ON still prevents the disable-TPM restart.
+- A consistent 0.85 workflow with a same-boot pending intermediate reboot
+  migrates to 0.86 while retaining its mandatory reboot.
+- Rebooting without enabling the BIOS setting does not mark the workflow
+  complete. Live enabled-TPM evidence is still required.
 
-The flash-result fixtures reproduce representative successful physical
-first- and second-stage outputs in which progress percentages are separated by
-bare carriage returns. They prove that V0.831 recognizes the final 100-percent
-update and exact target version while retaining independent rejections for a
-wrong target version, nonzero exit, stdout error code, and internal-log error.
+All packaged PowerShell scripts parsed successfully. The regenerated flat
+SHA256SUMS.txt was checked with VERIFY-PORTABLE.ps1 and the runtime integrity,
+executable, driver, and firmware verification functions. The final ZIP was
+extracted into a differently named folder and independently verified.
 
-The live-progress fixtures prove that the displayed percentage is the newest
-valid value reported by Infineon, that the 0/50/100 progress-bar shapes are
-exact, and that no percentage is invented before native output contains one.
-A real child-process regression fixture emits bare-CR 0/50/100 values and exits;
-the watcher must return exit code 0 and retain 100 percent. A source assertion
-also rejects any blocking `WaitForExit()` call in the firmware-flash function.
+Both compiled executables, TVicPort.sys, all 12 firmware BIN images, and vendor
+license/readme files are byte-for-byte identical to 0.85. The BitLocker-check
+function, flashing function, firmware routes, replacement-TPM logic, and native
+process/authorization/result-validation logic were compared with that baseline.
 
-Date: 2026-08-23
+## Windows evidence and limits
 
-## Preserved payloads
+The user ran the exact unchanged 0.85 BitLocker function on Swedish Windows
+(UI culture sv-SE), Windows PowerShell 5.1.26100.9711, on 2026-10-22. It returned
+ReturnValue=0 and ProtectionStatus=0 for C:, successfully allowing the gate.
+That is evidence for the OFF case of the function retained in this release.
 
-- `Driver/TVicPort.sys` SHA-256:
-  `9c9ab56c8bcf5ec958e7c2346f23a3027f69abdf8af923b591518eee64ad98ad`
-- All 12 supported source-to-target firmware images are pinned by exact
-  filename and SHA-256 in both `UpdaterCommon.ps1` and
-  `VERIFY-PORTABLE.ps1`. Regression coverage requires every declared route to
-  resolve to its corresponding image and hash.
+0.86 itself was assembled outside Windows. The new normal-restart actions,
+Windows elevation, BIOS setting changes, driver loading, and physical TPM
+flashing were not executed on real Windows hardware here. Automated restart
+checks validate arguments, warnings, cancellation, failures, and workflow state
+using simulated process responses, not actual machine restarts.
 
-The Windows TVicPort/TIS transport remains functionally identical to the proven
-V8.1.3 implementation; only its diagnostic version label changed.
+## Optional maintainer checks
 
-## Supplied successful-flash evidence
+Normal users only extract the ZIP and run TPM-Updater.exe. No build or test
+commands are needed. Maintainers may run, from the extracted folder:
 
-The supplied 5.62-to-5.67 record had process exit 0, exact target
-`5.67.19690.2`, valid new firmware, 100% completion, the explicit Infineon
-success message, and 319 FieldUpgrade transfer commands. V0.831 preserves that
-transport and those update-specific success gates.
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\00-PowerShell-Syntax-Check.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REGRESSION-TESTS.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\VERIFY-PORTABLE.ps1
+```
 
-## Authorization tests
+Users should not edit scripts or regenerate release manifests themselves.
+See CHANGELOG-V0.85.md for the previous release's detailed changes.
 
-`Tests/Authorization-Gates.Tests.ps1` covers identity/state/policy parsing,
-empty-platformAuth routing, reported default-platform-policy routing, legacy
-`0x000001C4` capability rejection, exact `0x0000012F` authorization-error
-decoding, payload-transfer evidence classification, PolicyOR calculation, and
-rejection of disabled, unknown, unqueryable, unproven, or mismatched
-authorization states. The Windows build runs these tests before provisioning
-or compilation.
 
-The legacy classification is based on target evidence from firmware
-`5.0.1089.2`: transport success, a valid 10-byte TPM response, and return code
-`0x000001C4` (`TPM_RC_VALUE` for capability parameter 1). V0.831 parses the TPM
-header before requiring the longer success payload.
+## Complete source repository validation
 
-The supplied V9.3 target log further proves that StartAuthSession and
-PolicyCommandCode succeeded but FieldUpgradeStartVendor returned raw TPM code
-`0x0000012F` (`TPM_RC_AUTH_UNAVAILABLE`). No subsequent `TPM_FieldUpgrade`
-payload command appears. V0.831 therefore blocks this state during preflight and
-does not rely on an authorization attempt as a policy probe.
+The complete source archive was assembled from the verified 0.831 SOURCE archive
+and the released 0.86 portable workflow. All original Source files, firmware
+images, vendor documents, driver and MSVC response/config files remain intact.
 
-## Portable-output checks
+The source-layout workflow suite passed: 56 cases / 179 assertions. The original
+authorization/routing/native-parser/progress/process-exit/flash-result suite
+also passed after updating its obsolete automatic-BIOS-restart assertions.
+The process-exit fixture ran a real harmless PowerShell child process on Linux.
 
-The build publishes every required runtime payload directly into `dist`,
-removes temporary smoke-test output, records the exact executable hash, creates
-a flat SHA-256 manifest, and runs `VERIFY-PORTABLE.ps1`. The verifier requires
-the executable, driver, all 12 firmware images, launchers, common runtime,
-PowerShell syntax checker, verifier, and build identity; it also independently
-checks the pinned driver hash and every pinned firmware-image hash.
+The actual Publish-PortableRuntime, Write-PortableRuntimeManifest, and
+Assert-PortableRuntimeComplete build functions were executed against a temporary
+runtime using the existing 0.86 release executables as fixtures. Publication,
+file-copy equality, build identity, firmware hashes, and generated manifest
+verification passed. This verifies the packaging stage, not MSVC compilation.
 
-The runtime resolves its location from `PSScriptRoot`; it contains no fixed
-drive letter, parent directory, or dist-folder name.
-
-The wrapper also repairs a stopped, stale `TVICPORT` absolute `ImagePath` after
-verifying the service is a kernel driver and any existing image has the pinned
-hash. A running registration with a missing image is deliberately rejected.
-
-## Remaining hardware validation
-
-This V0.831 source archive was assembled and archive-validated outside the target
-Windows 11 machine. Before `dist` exists, a real V0.831 MSVC build remains to be
-performed on a Windows build computer. When the build explicitly reports
-`Portable runtime ready`, its build, link, executable smoke test, publication,
-and portable integrity verification have completed successfully. Merely finding
-an incomplete `dist` left after a failed build is not success. A BIOS-enabled
-physical TPM flash of V0.831 remains hardware validation. Build failures stop
-before a portable dist is declared complete. The newly fail-closed legacy gate
-must be confirmed on the target by observing that it refuses the BIOS-enabled
-non-empty/unqueryable state and proceeds only after the live probe reports
-Empty Buffer.
+The Windows compiler response-file inputs and linker objects were cross-checked,
+all required Windows project includes were resolved, and all source scripts
+parsed successfully. The native compilation/link stages themselves were not
+executed in this Linux environment. A real Windows MSVC build remains required
+to confirm compiler, linker, embedded-manifest and freshly built startup checks.

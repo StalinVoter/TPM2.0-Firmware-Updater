@@ -1,0 +1,7 @@
+# Keep source archive bytes and PowerShell UTF-8 BOMs unchanged on checkout.
+# This also keeps SHA256SUMS.txt valid across Windows and Linux checkouts.
+* -text
+*.BIN binary
+*.sys binary
+*.pdf binary
+*.exe binary

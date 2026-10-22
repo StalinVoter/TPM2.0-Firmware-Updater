@@ -17,14 +17,14 @@ $ExePath = Join-Path $DistDir 'TPMFactoryUpd-Direct-Win11-x64.exe'
 $LauncherSource = Join-Path $PackageRoot 'Source\Launcher\TPM-Updater-Launcher.c'
 $LauncherObject = Join-Path $BuildDir 'TPM-Updater-Launcher.obj'
 $LauncherExe = Join-Path $DistDir 'TPM-Updater.exe'
-$StateRoot = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.831'
+$StateRoot = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.86'
 $BootstrapCache = Join-Path $StateRoot 'BuildBootstrap'
 $VsBootstrapper = Join-Path $BootstrapCache 'vs_BuildTools.exe'
 $VsBootstrapperUrl = 'https://aka.ms/vs/17/release/vs_BuildTools.exe'
 $PrivateBuildToolsPath = Join-Path $env:ProgramFiles 'Microsoft Visual Studio\IFX-TPM-BuildTools'
 $ExpectedToolVersion = '02.03.4733.00'
-$BuildId = 'IFX-TPM-UPDATER-V0.831-PORTABLE-20260908'
-$PackageName = 'Complete Windows 11 Updater Package V0.831 PORTABLE'
+$BuildId = 'IFX-TPM-UPDATER-V0.86-PORTABLE-20261022'
+$PackageName = 'Complete Windows 11 Updater Package V0.86 PORTABLE'
 $WingetPackageId = 'Microsoft.VisualStudio.BuildTools'
 
 $DriverSource = Join-Path $PackageRoot 'Driver\TVicPort.sys'
@@ -255,7 +255,7 @@ function Ensure-WinGet {
         return $path
     }
 
-    Write-Host 'WinGet is missing, unregistered, or not usable. V0.831 will repair/install it automatically.' -ForegroundColor Yellow
+    Write-Host 'WinGet is missing, unregistered, or not usable. V0.86 will repair/install it automatically.' -ForegroundColor Yellow
 
     [void](Try-RegisterExistingAppInstaller)
     $path = Get-WinGetPath
@@ -653,12 +653,14 @@ function Publish-PortableRuntime {
         [pscustomobject]@{ Source='TPM-Updater.ps1'; Destination='TPM-Updater.ps1' },
         [pscustomobject]@{ Source='UpdaterCommon.ps1'; Destination='UpdaterCommon.ps1' },
         [pscustomobject]@{ Source='00-PowerShell-Syntax-Check.ps1'; Destination='00-PowerShell-Syntax-Check.ps1' },
+        [pscustomobject]@{ Source='REGRESSION-TESTS.ps1'; Destination='REGRESSION-TESTS.ps1' },
         [pscustomobject]@{ Source='VERIFY-PORTABLE.cmd'; Destination='VERIFY-PORTABLE.cmd' },
         [pscustomobject]@{ Source='VERIFY-PORTABLE.ps1'; Destination='VERIFY-PORTABLE.ps1' },
         [pscustomobject]@{ Source='PORTABLE-DIST-README.txt'; Destination='README.txt' },
         [pscustomobject]@{ Source='VERSION.txt'; Destination='VERSION.txt' },
         [pscustomobject]@{ Source='VALIDATION.md'; Destination='VALIDATION.md' },
-        [pscustomobject]@{ Source='CHANGELOG-V0.831.md'; Destination='CHANGELOG-V0.831.md' },
+        [pscustomobject]@{ Source='CHANGELOG-V0.85.md'; Destination='CHANGELOG-V0.85.md' },
+        [pscustomobject]@{ Source='CHANGELOG-V0.86.md'; Destination='CHANGELOG-V0.86.md' },
         [pscustomobject]@{ Source='Policy\README.txt'; Destination='POLICY-README.txt' },
         [pscustomobject]@{ Source='Infineon-Source-License.txt'; Destination='Infineon-Source-License.txt' },
         [pscustomobject]@{ Source='Firmware\Infineon-5.67-Release-Readme.txt'; Destination='Infineon-5.67-Release-Readme.txt' },
@@ -731,6 +733,7 @@ function Assert-PortableRuntimeComplete {
         'TPM-Updater.ps1',
         'UpdaterCommon.ps1',
         '00-PowerShell-Syntax-Check.ps1',
+        'REGRESSION-TESTS.ps1',
         'VERIFY-PORTABLE.cmd',
         'VERIFY-PORTABLE.ps1',
         'PORTABLE-RUNTIME.txt',
@@ -940,6 +943,7 @@ exit /b 0
 Assert-Host
 Assert-BundledDriver | Out-Null
 & (Join-Path $PackageRoot 'Tests\Authorization-Gates.Tests.ps1')
+& (Join-Path $PackageRoot 'REGRESSION-TESTS.ps1')
 [string]$vsPath = [string](Ensure-BuildEnvironment)
 Invoke-RealBuild -InstallationPath $vsPath
 return

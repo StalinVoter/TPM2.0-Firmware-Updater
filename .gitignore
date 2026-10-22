@@ -1,0 +1,9 @@
+/build/
+/dist/
+/logs/
+/.vs/
+*.obj
+*.pdb
+*.ilk
+*.map
+*.tmp

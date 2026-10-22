@@ -1,4 +1,4 @@
-IFX TPM Firmware Updater V0.831 PORTABLE
+IFX TPM Firmware Updater V0.86 PORTABLE
 =======================================
 
 WHAT THIS APPLICATION DOES
@@ -28,8 +28,9 @@ enables or disables the TPM.
 HOW TO START
 ------------
 
-Keep every file in this folder together. Double-click TPM-Updater.exe and
-select Yes when Windows asks for administrator permission.
+Extract the ZIP into a fresh folder. Keep every file in that folder together.
+Double-click TPM-Updater.exe and select Yes when Windows asks for administrator
+permission. This package is ready to run; no build tools are required.
 
 The application displays the installed firmware and a checklist:
 
@@ -40,13 +41,29 @@ The application displays the installed firmware and a checklist:
 Run TPM-Updater.exe again after every restart. It remembers completed steps
 and checks them against the TPM before continuing.
 
+IF YOU HAVE INSTALLED A DIFFERENT TPM MODULE
+-------------------------------------------
+
+If saved progress belongs to the previous module, the application offers:
+
+  Start a new update for the connected TPM
+
+Press Enter and then Y. It keeps the previous session and starts a clean
+checklist using the connected module's current firmware. Follow the next arrow
+as usual. There is no need to delete saved files or edit scripts.
+
+The BitLocker check reads the Windows system drive only and works independently
+of Windows display language. Other drives do not affect this check.
+
 STEP-BY-STEP UPDATE
 -------------------
 
 1. DISABLE TRUSTED COMPUTING
 
-   When the arrow points to the BIOS/UEFI step, press Enter and then Y. The
-   computer will restart and try to open BIOS/UEFI settings automatically.
+   When the arrow points to the BIOS/UEFI step, press Enter and read the
+   warning. Save all unsaved documents and close your programs, then press Y.
+   The computer will restart normally. During startup, press your motherboard's
+   setup key (commonly Delete or F2) to enter BIOS/UEFI manually.
 
    Find Trusted Computing, Security Device Support, or TPM Device and disable
    it. Save the setting and let Windows start. Do not select Clear TPM, Reset
@@ -70,9 +87,11 @@ STEP-BY-STEP UPDATE
 
 5. RE-ENABLE TRUSTED COMPUTING
 
-   After the final firmware update, follow the arrowed BIOS/UEFI step. Re-enable
-   the same Trusted Computing, Security Device Support, or TPM Device setting.
-   Save the setting and let Windows start.
+   After the final firmware update, follow the arrowed BIOS/UEFI step. Save
+   unsaved documents and close programs before confirming the normal restart.
+   Press your motherboard's setup key during startup to enter BIOS/UEFI manually.
+   Re-enable the same Trusted Computing, Security Device Support, or TPM Device
+   setting. Save the setting and let Windows start.
 
    Run TPM-Updater.exe once more. It should report that the firmware is current
    and the checklist is complete.
@@ -85,8 +104,9 @@ STEP-BY-STEP UPDATE
 IF SOMETHING GOES WRONG
 -----------------------
 
-- If Windows cannot open BIOS/UEFI automatically, restart manually and press
-  the motherboard's setup key during startup. Delete and F2 are common keys.
+- BIOS/UEFI must be entered manually during startup. Use the setup key specified
+  by your motherboard; Delete and F2 are common keys. The application requests
+  an ordinary restart and does not automatically open firmware settings.
 - If the application reports an unsupported TPM or firmware version, do not
   substitute another BIN file and do not try to force the update.
 - If the application stops with an error, open the logs folder beside it. Send

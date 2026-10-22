@@ -2,8 +2,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PackageVersion = 'Complete Windows 11 Updater Package V0.831 PORTABLE'
-$script:BuildId = 'IFX-TPM-UPDATER-V0.831-PORTABLE-20260908'
+$script:PackageVersion = 'Complete Windows 11 Updater Package V0.86 PORTABLE'
+$script:BuildId = 'IFX-TPM-UPDATER-V0.86-PORTABLE-20261022'
 $script:ToolVersion = '02.03.4733.00'
 $script:PackageRoot = $PSScriptRoot
 $script:PortableExeCandidate = Join-Path $script:PackageRoot 'TPMFactoryUpd-Direct-Win11-x64.exe'
@@ -32,10 +32,18 @@ if ($script:IsPortableRuntime) {
     $script:PortableManifestPath = $null
 }
 $script:LogDir = Join-Path $script:PackageRoot 'logs'
-$script:StateDir = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.831'
+# Keep the existing state location so upgrading does not lose a pending reboot.
+$script:StateDir = Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.85'
 $script:PlanPath = Join-Path $script:StateDir 'LastPlan.json'
 $script:SuccessPath = Join-Path $script:StateDir 'LastSuccessfulFlash.json'
 $script:WorkflowPath = Join-Path $script:StateDir 'Workflow.json'
+$script:LegacyWorkflowPath = Join-Path (Join-Path $env:ProgramData 'IFX-TPM-Updater-V0.831') 'Workflow.json'
+$script:LoadedWorkflowPath = $null
+$script:CompatibleWorkflowBuildIds = @(
+    $script:BuildId,
+    'IFX-TPM-UPDATER-V0.85-PORTABLE-20261004',
+    'IFX-TPM-UPDATER-V0.831-PORTABLE-20260908'
+)
 $script:ExpectedTvicSysSha256 = '9c9ab56c8bcf5ec958e7c2346f23a3027f69abdf8af923b591518eee64ad98ad'
 $script:TvicServiceName = 'TVICPORT'
 
@@ -240,13 +248,68 @@ function Quote-NativePath {
 }
 
 function Assert-BitLockerProtectionOff {
-    $raw = (& "$env:SystemRoot\System32\manage-bde.exe" -status 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0) { throw "manage-bde failed with exit code $LASTEXITCODE." }
-    if ($raw -match '(?im)^\s*Protection Status:\s*Protection On\s*$') {
-        throw 'BitLocker protection is ON. Suspend or disable it before updating TPM firmware.'
+    try {
+        $systemDrive = [string]$env:SystemDrive
+        if ($systemDrive -notmatch '^[A-Za-z]:$') {
+            throw 'BitLocker verification could not determine the Windows system drive.'
+        }
+        $systemDrive = $systemDrive.ToUpperInvariant()
+        Write-RunDetail "BitLocker check: Windows system drive=$systemDrive; Provider=Win32_EncryptableVolume; Namespace=root/CIMV2/Security/MicrosoftVolumeEncryption"
+
+        $volumes = @(Get-CimInstance `
+            -Namespace 'root/CIMV2/Security/MicrosoftVolumeEncryption' `
+            -ClassName Win32_EncryptableVolume `
+            -Filter "DriveLetter='$systemDrive'" `
+            -ErrorAction Stop)
+        if ($volumes.Count -ne 1 -or $null -eq $volumes[0]) {
+            throw "BitLocker provider did not return exactly one Windows system volume for $systemDrive."
+        }
+        $volume = $volumes[0]
+        if ([string]$volume.DriveLetter -ine $systemDrive) {
+            throw "BitLocker provider returned a different volume instead of $systemDrive."
+        }
+
+        $results = @(Invoke-CimMethod -InputObject $volume -MethodName GetProtectionStatus -ErrorAction Stop)
+        if ($results.Count -ne 1 -or $null -eq $results[0]) {
+            throw 'BitLocker GetProtectionStatus returned no single method result.'
+        }
+        $result = $results[0]
+        $returnProperty = $result.PSObject.Properties['ReturnValue']
+        $statusProperty = $result.PSObject.Properties['ProtectionStatus']
+        $rawReturn = if ($null -ne $returnProperty -and $null -ne $returnProperty.Value) { [string]$returnProperty.Value } else { '<missing>' }
+        $rawStatus = if ($null -ne $statusProperty -and $null -ne $statusProperty.Value) { [string]$statusProperty.Value } else { '<missing>' }
+        Write-RunDetail "BitLocker GetProtectionStatus: Drive=$systemDrive ReturnValue=$rawReturn ProtectionStatus=$rawStatus"
+
+        # Never cast null, text, Boolean, or fractional values to uint32: some
+        # of those conversions produce zero and could accidentally open the gate.
+        foreach ($name in @('ReturnValue','ProtectionStatus')) {
+            $property = $result.PSObject.Properties[$name]
+            if ($null -eq $property -or $null -eq $property.Value) {
+                throw "BitLocker GetProtectionStatus returned a missing $name."
+            }
+            $value = $property.Value
+            if (($value -isnot [uint32] -and $value -isnot [int32] -and
+                 $value -isnot [uint64] -and $value -isnot [int64]) -or
+                $value -lt 0 -or $value -gt [uint32]::MaxValue) {
+                throw "BitLocker GetProtectionStatus returned an invalid numeric $name."
+            }
+        }
+        $returnValue = [uint32]$returnProperty.Value
+        $status = [uint32]$statusProperty.Value
+        if ($returnValue -ne 0) {
+            throw "BitLocker GetProtectionStatus failed with return code $returnValue."
+        }
+        switch ($status) {
+            0 { Write-RunDetail "BitLocker protection is OFF on $systemDrive. Result=Allowed"; return }
+            1 { throw "BitLocker protection is ON on $systemDrive. Suspend or disable it before TPM maintenance." }
+            2 { throw "BitLocker protection state is UNKNOWN on $systemDrive." }
+            default { throw "Unexpected BitLocker ProtectionStatus value $status on $systemDrive." }
+        }
     }
-    if ($raw -notmatch '(?im)^\s*Protection Status:\s*Protection Off\s*$') {
-        throw 'Could not verify that BitLocker protection is OFF.'
+    catch {
+        Write-RunDetail "BitLocker verification failed: $($_.Exception.Message); Result=Blocked"
+        Write-RunDetail $_.Exception.ToString()
+        throw "BitLocker verification failed: $($_.Exception.Message)"
     }
 }
 
@@ -458,9 +521,32 @@ function Get-TrustedComputingStatus {
 }
 
 function Get-Workflow {
-    if (-not (Test-Path -LiteralPath $script:WorkflowPath -PathType Leaf)) { return $null }
-    try { return (Get-Content -LiteralPath $script:WorkflowPath -Raw | ConvertFrom-Json -ErrorAction Stop) }
+    $script:LoadedWorkflowPath = $null
+    foreach ($candidate in @($script:WorkflowPath,$script:LegacyWorkflowPath)) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            $script:LoadedWorkflowPath = $candidate
+            break
+        }
+    }
+    if (-not $script:LoadedWorkflowPath) { return $null }
+    try { return (Get-Content -LiteralPath $script:LoadedWorkflowPath -Raw | ConvertFrom-Json -ErrorAction Stop) }
     catch { return $null }
+}
+
+function Archive-LoadedWorkflow {
+    if (-not $script:LoadedWorkflowPath) { return $null }
+    if (-not (Test-Path -LiteralPath $script:LoadedWorkflowPath -PathType Leaf)) {
+        throw 'The previous workflow disappeared before it could be archived.'
+    }
+    $archiveDir = Join-Path $script:StateDir 'Archives'
+    New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+    $name = 'Workflow-{0}-{1}.json' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'),([Guid]::NewGuid().ToString('N'))
+    $archivePath = Join-Path $archiveDir $name
+    # Copy before saving the replacement. If the subsequent save fails, the
+    # previous active file and its archived bytes are both still available.
+    Copy-Item -LiteralPath $script:LoadedWorkflowPath -Destination $archivePath -ErrorAction Stop
+    Write-RunDetail "Archived previous workflow: Source=$script:LoadedWorkflowPath Archive=$archivePath"
+    return $archivePath
 }
 
 function Save-Workflow {
@@ -545,7 +631,7 @@ function Assert-UpdaterExecutable {
     }
     $buildInfo = Get-Content -LiteralPath $script:BuildInfoPath -Raw
     if ($buildInfo -notmatch "(?m)^Package build ID:\s*$([regex]::Escape($script:BuildId))\s*$") {
-        throw 'The executable was not built from this V0.831 package. Rebuild from the V0.831 source package.'
+        throw 'The native helper does not match this V0.86 package identity. Extract the complete V0.86 package again.'
     }
     $recordedExeHash = [regex]::Match($buildInfo, '(?im)^Executable SHA-256:\s*([0-9A-F]{64})\s*$')
     if (-not $recordedExeHash.Success) { throw 'Build identity file does not contain the executable SHA-256.' }
