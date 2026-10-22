@@ -1,5 +1,20 @@
 # Version 0.86 — 2026-10-22
 
+## BitLocker language fix retained from 0.85
+
+- The old updater could refuse to continue even when BitLocker protection was
+  correctly suspended, simply because Windows used Swedish or another language.
+- It looked for the exact English words "Protection Status: Protection Off".
+  On non-English Windows, the same status appeared in another language, so the
+  updater failed to recognize it and stopped.
+- The fixed version asks Windows for a status number whose meaning stays the
+  same in every language. It can recognize that protection is off without
+  relying on English wording. Your Swedish Windows test confirmed this works.
+- It checks only the Windows system drive. BitLocker protection on an unrelated
+  D: or E: drive no longer causes this check to stop the update.
+- The safety check remains: protection that is on, an unknown state, or a failed
+  status check still prevents TPM maintenance.
+
 ## Normal restart at BIOS steps
 
 - Replace automatic firmware-setup restart requests with a normal Windows
@@ -22,8 +37,9 @@
   just because this wrapper was upgraded. The 0.831 fallback is retained.
 - A restart request does not prove the user changed a BIOS setting. Live TPM
   checks still determine the next action and final completion.
-- Both executables, driver, all 12 firmware images, and native helper protocol
-  remain unchanged. No native rebuild or user-side build is required.
+- The fixes are in the included PowerShell scripts. Both existing EXE files,
+  the driver, and all 12 firmware images remain unchanged. Extract the complete
+  ZIP and run TPM-Updater.exe; no compiling or build tools are required.
 
 ## Validation
 
